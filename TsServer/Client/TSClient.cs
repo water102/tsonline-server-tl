@@ -6,10 +6,10 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
-using TS_Server.Server;
+using Ts.Server;
 using System.Globalization;
 
-namespace TS_Server.Client
+namespace Ts.Client
 {
     public class TSClient
     {
@@ -22,7 +22,6 @@ namespace TS_Server.Client
         public uint accID;
         public byte[] name_temp;
         public TSWorld world;
-        public ushort warpPrepare;
         public ushort idNpcTalking;
         public ushort unkIdNpc;
         public DataTools.Step currentStep;
@@ -49,7 +48,7 @@ namespace TS_Server.Client
 
             chr.initChar(data, name_temp);
             chr.loginChar();
-            world = TSServer.getInstance().getWorld();
+            world = TSServer.GetInstance().World;
         }
 
         public int checkLogin(uint acc_id, string password)
@@ -95,36 +94,43 @@ namespace TS_Server.Client
 
         public int checkQuest(TSClient client, ushort questId, ushort bit_3 = 0, ushort bit_4 = 0, ushort bit_5 = 0)
         {
-            uint userId = client.accID;
-            //check exist, online, create char(เช็คตัวละครออนไลน์)
-            int ret = -1;
-            var c = new TSMysqlConnection();
-            string sql = "SELECT questId FROM quest WHERE charId = " + userId + " and questId = " + questId;
-            if (bit_3 != 0)
+            try
             {
-                sql += " and bit_3 = " + bit_3;
-            }
-            if (bit_4 != 0)
-            {
-                sql += " and bit_4 = " + bit_4;
-            }
-            if (bit_5 != 0)
-            {
-                sql += " and bit_5 = " + bit_5;
-            }
-            MySqlDataReader data = c.selectQuery(sql);
+                uint userId = client.accID;
+                //check exist, online, create char(เช็คตัวละครออนไลน์)
+                int ret = -1;
+                var c = new TSMysqlConnection();
+                string sql = "SELECT questId FROM quest WHERE charId = " + userId + " and questId = " + questId;
+                if (bit_3 != 0)
+                {
+                    sql += " and bit_3 = " + bit_3;
+                }
+                if (bit_4 != 0)
+                {
+                    sql += " and bit_4 = " + bit_4;
+                }
+                if (bit_5 != 0)
+                {
+                    sql += " and bit_5 = " + bit_5;
+                }
+                MySqlDataReader data = c.selectQuery(sql);
 
-            if (!data.Read())
-                ret = -1;
-            else
-            {
-                ret = data.GetInt16(0);
+                if (!data.Read())
+                    ret = -1;
+                else
+                {
+                    ret = data.GetInt16(0);
+                }
+
+
+                data.Close();
+                c.connection.Close();
+                return ret;
             }
-
-
-            data.Close();
-            c.connection.Close();
-            return ret;
+            catch (Exception ex)
+            {
+                return -1;
+            }
         }
         public List<int> getCurrentStep(TSClient client, ushort questId)
         {
@@ -253,6 +259,18 @@ namespace TS_Server.Client
         {
             try
             {
+                string text = string.Empty;
+                checked
+                {
+
+                    for (int i = 0; i < data.Length; i++)
+                    {
+                        byte b = data[i];
+                        text += b.ToString("X2");
+                    }
+                }
+
+                Console.WriteLine("reply " + text);
                 socket.Send(data);
             }
             catch (Exception e)
@@ -286,12 +304,12 @@ namespace TS_Server.Client
         }
         public void RequestComplete()
         {
-            reply(new PacketCreator(0x14, 8).send());
+            reply(new PacketCreator(0x14, 8).Send());
         }
         public void AllowMove()
         {
-            reply(new PacketCreator(5, 4).send());
-            reply(new PacketCreator(0x0F, 0x0A).send());
+            reply(new PacketCreator(5, 4).Send());
+            reply(new PacketCreator(0x0F, 0x0A).Send());
         }
         public static byte[] encodeByteWith0xAD(byte[] byte_0)
         {
@@ -378,27 +396,27 @@ namespace TS_Server.Client
                     case 30:
                         {
                             p2 = new PacketCreator(0x1D, 09);
-                            p2.addByte(0);
-                            client.reply(p2.send());
+                            p2.AddByte(0);
+                            client.reply(p2.Send());
                             p2 = new PacketCreator(0x1D, 04);
                             uint my_gold_bank = client.getChar().gold_bank;
                             byte[] gold_bank = convertIntToArrayByte(my_gold_bank);
-                            p2.addByte(gold_bank[0]);
-                            p2.addByte(gold_bank[1]);
-                            p2.addByte(gold_bank[2]);
-                            p2.addByte(gold_bank[3]);
-                            client.reply(p2.send());
+                            p2.AddByte(gold_bank[0]);
+                            p2.AddByte(gold_bank[1]);
+                            p2.AddByte(gold_bank[2]);
+                            p2.AddByte(gold_bank[3]);
+                            client.reply(p2.Send());
                             p2 = new PacketCreator(0x1D, 05);
-                            client.reply(p2.send());
+                            client.reply(p2.Send());
                             p2 = new PacketCreator(0x1D, 09);
-                            p2.addByte(0);
-                            client.reply(p2.send());
+                            p2.AddByte(0);
+                            client.reply(p2.Send());
                             break;
                         }
                     case 31:
                         {
                             p2 = new PacketCreator(0x1D, 06);
-                            client.reply(p2.send());
+                            client.reply(p2.Send());
                             break;
                         }
                 }
@@ -414,7 +432,7 @@ namespace TS_Server.Client
             if (client.selectMenu != 0)
             {
                 //Case select menu -->
-                DataTools.Step temp_step = DataTools.EveData.listStepOnMap[client.map.mapid].Find(item => client.selectMenu == item.optionId & item.idDialog == client.idDialog);
+                DataTools.Step temp_step = DataTools.EveData.listMapData[client.map.mapid].steps.Find(item => client.selectMenu == item.optionId & item.idDialog == client.idDialog);
                 if (temp_step.packageSend != null)
                 {
                     step = temp_step;
@@ -431,7 +449,7 @@ namespace TS_Server.Client
             }
             if (client.idxQ > 0)
             {
-                DataTools.Step temp_step = DataTools.EveData.listStepOnMap[client.map.mapid].Find(item => client.idxQ == item.qIndex & item.resBattle == client.resBattle);
+                DataTools.Step temp_step = DataTools.EveData.listMapData[client.map.mapid].steps.Find(item => client.idxQ == item.qIndex & item.resBattle == client.resBattle);
                 client.idxQ = 0;
                 if (temp_step.packageSend != null)
                 {
@@ -450,16 +468,16 @@ namespace TS_Server.Client
             if (client.finishQ == true)
             {
                 DataTools.Step temp_step = new DataTools.Step();
-                DataTools.Step[] steps = DataTools.EveData.listStepOnMap[client.map.mapid].FindAll(item => item.npcIdInMap == client.idNpcTalking).ToArray();
+                DataTools.Step[] steps = DataTools.EveData.listMapData[client.map.mapid].steps.FindAll(item => item.npcIdInMap == client.idNpcTalking).ToArray();
                 for (int i = 0; i < steps.Length; i++)
                 {
                     DataTools.Step item = steps[i];
                     if (item.stepId == 15)
                         Console.WriteLine(item.stepId);
-                    if (item.requiredQ.Count > 0)
+                    if (item.requiredQuests.Count > 0)
                     {
 
-                        foreach (KeyValuePair<ushort, List<ushort>> entry in item.requiredQ)
+                        foreach (KeyValuePair<ushort, List<ushort>> entry in item.requiredQuests)
                         {
                             if (entry.Value.ElementAt(0) == 1 & entry.Value.ElementAt(1) == 2 & entry.Value.ElementAt(2) == 1)
                             {
@@ -483,7 +501,7 @@ namespace TS_Server.Client
             //    client.continueMoving();
             //    return;
             //}
-            if (client.idxDialog >= step.packageSend.Length)
+            if (step.packageSend == null || client.idxDialog >= step.packageSend.Length)
             {
                 stopTalking(client);
                 client.continueMoving();
@@ -493,15 +511,15 @@ namespace TS_Server.Client
             byte[] packageToSend = packages.ElementAt(client.idxDialog).package;
 
             p2 = new PacketCreator(0x14, 1);
-            p2.addByte(0); p2.addByte(packageToSend[0]); p2.addByte(packageToSend[1]); p2.addByte(packageToSend[2]); p2.addByte(packageToSend[3]);
-            p2.addByte(packageToSend[4]);
-            p2.addByte(packageToSend[5]); p2.addByte(packageToSend[6]);
+            p2.AddByte(0); p2.AddByte(packageToSend[0]); p2.AddByte(packageToSend[1]); p2.AddByte(packageToSend[2]); p2.AddByte(packageToSend[3]);
+            p2.AddByte(packageToSend[4]);
+            p2.AddByte(packageToSend[5]); p2.AddByte(packageToSend[6]);
 
-            p2.addByte(packageToSend[7]);
-            p2.addByte(packageToSend[8]); p2.addByte(packageToSend[9]); p2.addByte(packageToSend[10]); p2.addByte(packageToSend[11]);
+            p2.AddByte(packageToSend[7]);
+            p2.AddByte(packageToSend[8]); p2.AddByte(packageToSend[9]); p2.AddByte(packageToSend[10]); p2.AddByte(packageToSend[11]);
             int idDialog = convertArrayByteToInt(new byte[] { packageToSend[12], packageToSend[13] });
             ushort idDialog_2 = (ushort)(PacketReader.read16(packageToSend, 12));
-            p2.add16(idDialog_2);
+            p2.Add16(idDialog_2);
             if (packageToSend[3] == 6 & packageToSend[4] == 3)
             {
                 client.idDialog = idDialog_2;
@@ -515,9 +533,9 @@ namespace TS_Server.Client
             if (packageToSend[3] == 0 & packageToSend[4] == 3 & packageToSend[6] == 0 & packageToSend[7] == 1)
             {
                 ushort idNpcInMapJoin = packageToSend[5];
-                var index = Array.FindIndex(DataTools.EveData.listNpcOnMap[client.map.mapid], row => row.idOnMap == idNpcInMapJoin);
-                ushort idNpc = DataTools.EveData.listNpcOnMap[client.map.mapid][index].idNpc;
-                byte typePet = DataTools.EveData.listNpcOnMap[client.map.mapid][index].type;
+                var index = Array.FindIndex(DataTools.EveData.listMapData[client.map.mapid].npcs.ToArray(), row => row.idOnMap == idNpcInMapJoin);
+                ushort idNpc = DataTools.EveData.listMapData[client.map.mapid].npcs[index].idNpc;
+                byte typePet = DataTools.EveData.listMapData[client.map.mapid].npcs[index].type;
                 client.getChar().addPet(idNpc, 0, typePet);
             }
             if (packageToSend[3] == 0 & packageToSend[4] == 1)
@@ -551,217 +569,223 @@ namespace TS_Server.Client
                     }
                 }
             }
-            Console.WriteLine("Senddd click npc > " + String.Join(",", p2.getData()));
-            client.reply(p2.send());
+            Console.WriteLine("Senddd click npc > " + String.Join(",", p2.GetData()));
+            client.reply(p2.Send());
             client.idxDialog++;
         }
 
         public void ClickkNpc(byte[] data, TSClient client)
         {
-            //TSCharacter ch = client.getChar();
-            byte[] unknow = new byte[] { data[0], data[1] };
-            int id_unknow = convertArrayByteToInt(unknow);
-
-            byte[] _id_talking = new byte[] { data[2], data[3] };
-            int id_talking = PacketReader.read16(data, 2);
-            client.idNpcTalking = (ushort)id_talking;
-
-
-            var index = Array.FindIndex(DataTools.EveData.listNpcOnMap[client.map.mapid], row => row.idOnMap == id_talking);
-            if (index > -1)
+            try
             {
-                ushort idNpc = DataTools.EveData.listNpcOnMap[client.map.mapid][index].idNpc;
-                client.idNpc = idNpc;
+                //TSCharacter ch = client.getChar();
+                byte[] unknow = new byte[] { data[0], data[1] };
+                int id_unknow = convertArrayByteToInt(unknow);
 
-                DataTools.Step[] steps = DataTools.EveData.listStepOnMap[client.map.mapid].FindAll(item => item.npcIdInMap == id_talking).ToArray();
-                //Console.WriteLine("Count >> " + steps.Count);
-                List<DataTools.Step> stepValidate = new List<DataTools.Step>();
-                for (int i = 0; i < steps.Length; i++)
+                byte[] _id_talking = new byte[] { data[2], data[3] };
+                int id_talking = PacketReader.read16(data, 2);
+                client.idNpcTalking = (ushort)id_talking;
+
+
+                var index = Array.FindIndex(DataTools.EveData.listMapData[client.map.mapid].npcs.ToArray(), row => row.idOnMap == id_talking);
+                if (index > -1)
                 {
-                    DataTools.Step item = steps[i];
-                    if (item.requiredQ.Count > 0)
+                    ushort idNpc = DataTools.EveData.listMapData[client.map.mapid].npcs[index].idNpc;
+                    client.idNpc = idNpc;
+
+                    DataTools.Step[] steps = DataTools.EveData.listMapData[client.map.mapid].steps.FindAll(item => item.npcIdInMap == id_talking).ToArray();
+                    //Console.WriteLine("Count >> " + steps.Count);
+                    var stepValidate = new List<DataTools.Step>();
+                    for (int i = 0; i < steps.Length; i++)
                     {
-                        bool isValidate = true;
-                        foreach (KeyValuePair<ushort, List<ushort>> entry in item.requiredQ)
+                        DataTools.Step step = steps[i];
+                        if (step.requiredQuests.Count > 0)
                         {
-                            int idxCurrentQ = checkQuest(client, entry.Key, entry.Value.ElementAt(0), entry.Value.ElementAt(1), entry.Value.ElementAt(2));
-                            if (idxCurrentQ == -1)
+                            bool isValidate = true;
+                            foreach (KeyValuePair<ushort, List<ushort>> entry in step.requiredQuests)
                             {
-                                isValidate = false;
-                                break;
+                                int idxCurrentQ = checkQuest(client, entry.Key, entry.Value.ElementAt(0), entry.Value.ElementAt(1), entry.Value.ElementAt(2));
+                                if (idxCurrentQ == -1)
+                                {
+                                    isValidate = false;
+                                    break;
+                                }
+                            }
+                            if (!isValidate)
+                            {
+                                continue;
                             }
                         }
-                        if (!isValidate)
+                        if (step.requiredSlotPet && chr.next_pet != 4)
                         {
                             continue;
                         }
-                    }
-                    if (item.requiredSlotPet && chr.next_pet != 4)
-                    {
-                        continue;
-                    }
-                    if (item.requiredItem.Count > 0)
-                    {
-                        bool isValidate = true;
-                        foreach (KeyValuePair<ushort, ushort> entry in item.requiredItem)
+                        if (step.requiredItems.Count > 0)
                         {
-                            int idxItem = chr.inventory.haveItem(entry.Key);
-                            if (idxItem == -1)
+                            bool isValidate = true;
+                            foreach (KeyValuePair<ushort, ushort> entry in step.requiredItems)
                             {
-                                isValidate = false;
-                                break;
+                                int idxItem = chr.inventory.haveItem(entry.Key);
+                                if (idxItem == -1)
+                                {
+                                    isValidate = false;
+                                    break;
+                                }
+
+                            }
+                            if (!isValidate)
+                            {
+                                continue;
+                            }
+                        }
+                        if (step.requiredNpc.Count > 0)
+                        {
+                            bool isFound = false;
+                            step.requiredNpc.ForEach(npcId =>
+                            {
+                                for (int sl = 0; sl < chr.next_pet; sl++)
+                                    if (chr.pet[sl].NPCid == npcId)
+                                        isFound = true;
+                            });
+                            if (!isFound)
+                            {
+                                continue;
+                            }
+                        }
+                        if (step.receivedQuests.Count > 0)
+                        {
+
+                            foreach (KeyValuePair<ushort, List<ushort>> entry in step.receivedQuests)
+                            {
+                                ushort bit_1 = entry.Value.ElementAt(0);
+                                ushort bit_2 = entry.Value.ElementAt(1);
+                                ushort bit_3 = entry.Value.ElementAt(2);
+                                int idxCurrentQ = checkQuest(client, entry.Key);
+                                if (idxCurrentQ == -1 & ((bit_1 == 3 && bit_2 == 5 && bit_3 == 0) | (bit_1 == 2 & bit_2 == 0)))
+                                {
+
+                                    insertOrUpdateQuest(client, entry.Key, entry.Value.ElementAt(0), entry.Value.ElementAt(1), entry.Value.ElementAt(2));
+                                }
                             }
 
+                            //if (isValidate)
+                            //{
+                            //    stepValidate.Add(item);
+                            //}
                         }
-                        if (!isValidate)
+
+                        if (!stepValidate.Contains(step))
                         {
-                            continue;
+                            stepValidate.Add(step);
                         }
+                        //Console.WriteLine("Item valid >> " + item.stepId);
+                        //stepValidate.Add(item);
                     }
-                    if (item.requiredNpc.Count > 0)
+                    if (stepValidate.Count > 0)
                     {
-                        bool isFound = false;
-                        item.requiredNpc.ForEach(npcId =>
+
+
+                        currentStep = stepValidate.FirstOrDefault();
+                        stepValidate.ForEach(item =>
                         {
-                            for (int sl = 0; sl < chr.next_pet; sl++)
-                                if (chr.pet[sl].NPCid == npcId)
-                                    isFound = true;
+                            if (item.questId > 0)
+                            {
+                                Console.WriteLine(" here is goo >" + item.stepId);
+                                List<int> currentPackageStep = getCurrentStep(client, item.questId);
+                                int bit_1 = currentPackageStep[0];
+                                int bit_2 = currentPackageStep[1];
+                                int bit_3 = currentPackageStep[2];
+                                ushort r_bit_1 = item.rootBit.ElementAt(0);
+                                ushort r_bit_2 = item.rootBit.ElementAt(1);
+                                ushort r_bit_3 = item.rootBit.ElementAt(2);
+
+                                if (bit_1 == (int)r_bit_1 & bit_2 == (int)r_bit_2 & bit_3 == (int)r_bit_3)
+                                {
+                                    currentStep = item;
+                                }
+                            }
+
                         });
-                        if (!isFound)
-                        {
-                            continue;
-                        }
+
+                        Console.WriteLine("Steppp validated >>>" + currentStep.stepId);
+                        processStep(client);
+
                     }
-                    if (item.receivedQ.Count > 0)
+                    else
                     {
-                        
-                        foreach (KeyValuePair<ushort, List<ushort>> entry in item.receivedQ)
-                        {
-                            ushort bit_1 = entry.Value.ElementAt(0);
-                            ushort bit_2 = entry.Value.ElementAt(1);
-                            ushort bit_3 = entry.Value.ElementAt(2);
-                            int idxCurrentQ = checkQuest(client, entry.Key);
-                            if (idxCurrentQ == -1 & ((bit_1 == 3 && bit_2 == 5 && bit_3 == 0) | (bit_1 == 2 & bit_2 == 0)))
-                            {
-                                
-                                insertOrUpdateQuest(client, entry.Key, entry.Value.ElementAt(0), entry.Value.ElementAt(1), entry.Value.ElementAt(2));
-                            }                         
-                        }
-                      
-                        //if (isValidate)
-                        //{
-                        //    stepValidate.Add(item);
-                        //}
+                        client.continueMoving();
                     }
 
-                    if (!stepValidate.Contains(item))
-                    {
-                        stepValidate.Add(item);
-                    }
-                    //Console.WriteLine("Item valid >> " + item.stepId);
-                    //stepValidate.Add(item);
-                }
-                if (stepValidate.Count > 0)
-                {
-                    
 
-                    currentStep = stepValidate.FirstOrDefault();
-                    stepValidate.ForEach(item =>
-                    {
-                        if (item.questId > 0)
-                        {
-                            Console.WriteLine(" here is goo >" + item.stepId);
-                            List<int> currentPackageStep = getCurrentStep(client, item.questId);
-                            int bit_1 = currentPackageStep[0];
-                            int bit_2 = currentPackageStep[1];
-                            int bit_3 = currentPackageStep[2];
-                            ushort r_bit_1 = item.rootBit.ElementAt(0);
-                            ushort r_bit_2 = item.rootBit.ElementAt(1);
-                            ushort r_bit_3 = item.rootBit.ElementAt(2);
+                    //byte[] arr = new byte[] { 244, 68, 17, 0, 20, 1, 0, 0, 0, 1, 6, 3, 2, 0, 0, 0, 0, 0, 0, 6, 0 };
+                    ////// Chu Tien trang
+                    //if (id_talking == 7 || id_talking == 2 || id_talking == 1)
+                    //{
+                    //    //byte[] arrSend = new byte[arr.Length];
+                    //    //for (int i = 0; i < arr.Length; i++)
+                    //    //{
+                    //    //    arrSend[i] = (byte)(arr[i] ^ 0xAD);
+                    //    //}
+                    //    //client.reply(arrSend);
+                    //    // User talk
+                    //    //14 01 00 00 00 02 01 07 00 00 00 00 00 00 00 7F 28    
+                    //    // NPC Talk
+                    //    //14 01 00 00 00 03 01 03 01 00 00 00 00 00 00 CA 28
+                    //    // User talk
+                    //    //14 01 00 00 00 04 01 07 00 00 00 00 00 00 00 CB 28
+                    //    // NPC Talk
+                    //    //14 01 00 00 00 05 01 03 01 00 00 00 00 00 00 CC 28
+                    //    // NPC talk
+                    //    //14 01 00 00 00 06 01 03 01 00 00 00 00 00 00 CD 28
 
-                            if (bit_1 == (int)r_bit_1 & bit_2 == (int)r_bit_2 & bit_3 == (int)r_bit_3)
-                            {
-                                currentStep = item;
-                            }
-                        }
-                        
-                    });
+                    //    //14 01 00 00 00 03 00 02 2C 27 01 01 00 00 00 00 00
+                    //    PacketCreator p2 = new PacketCreator();
 
-                    Console.WriteLine("Steppp validated >>>" + currentStep.stepId);
-                    processStep(client);
+                    //    for (int i = 0; i < arr.Length; i++)
+                    //    {
+
+                    //    }
+
+                    //    p2 = new PacketCreator(0x14, 1);
+                    //    p2.addByte(0); p2.addByte(0); p2.addByte(0); p2.addByte(3); p2.addByte(0);
+                    //    p2.addByte(2);
+                    //    p2.addByte(0x2C); p2.addByte(27);
+
+                    //    p2.addByte(01);
+                    //    p2.addByte(01); p2.addByte(0); p2.addByte(0); p2.addByte(0);
+                    //    p2.add16(0);
+                    //    Console.WriteLine("Senddd click npc > " + String.Join(",", p2.getData()));
+
+                    //    //client.getChar().addPet(14106, 0, 0);
+                    //    client.reply(p2.send());
+
+                    //    //client.getChar().inventory.addItem(10168, 1, true);
+
+
+
+
+                    //    return;
+                    //}
 
                 }
                 else
                 {
-                    client.continueMoving();
+                    int idDialog = 10666;
+                    PacketCreator p = new PacketCreator(0x14, 1);
+                    p.AddByte(0); p.Add16(0); p.AddByte(0); p.AddByte(1);
+                    client.unkIdNpc = (ushort)(PacketReader.read16(data, 1) + 2);
+                    p.Add16(ushort.Parse((PacketReader.read16(data, 1) + 2).ToString()));
+                    p.Add16(0); p.Add16(0); p.Add16(0);
+                    p.Add16((ushort)idDialog);//you are hero :))
+
+                    Console.WriteLine("Unknown NPC > " + String.Join(",", p.GetData()));
+                    client.reply(p.Send());
                 }
-
-
-                //byte[] arr = new byte[] { 244, 68, 17, 0, 20, 1, 0, 0, 0, 1, 6, 3, 2, 0, 0, 0, 0, 0, 0, 6, 0 };
-                ////// Chu Tien trang
-                //if (id_talking == 7 || id_talking == 2 || id_talking == 1)
-                //{
-                //    //byte[] arrSend = new byte[arr.Length];
-                //    //for (int i = 0; i < arr.Length; i++)
-                //    //{
-                //    //    arrSend[i] = (byte)(arr[i] ^ 0xAD);
-                //    //}
-                //    //client.reply(arrSend);
-                //    // User talk
-                //    //14 01 00 00 00 02 01 07 00 00 00 00 00 00 00 7F 28    
-                //    // NPC Talk
-                //    //14 01 00 00 00 03 01 03 01 00 00 00 00 00 00 CA 28
-                //    // User talk
-                //    //14 01 00 00 00 04 01 07 00 00 00 00 00 00 00 CB 28
-                //    // NPC Talk
-                //    //14 01 00 00 00 05 01 03 01 00 00 00 00 00 00 CC 28
-                //    // NPC talk
-                //    //14 01 00 00 00 06 01 03 01 00 00 00 00 00 00 CD 28
-
-                //    //14 01 00 00 00 03 00 02 2C 27 01 01 00 00 00 00 00
-                //    PacketCreator p2 = new PacketCreator();
-
-                //    for (int i = 0; i < arr.Length; i++)
-                //    {
-
-                //    }
-
-                //    p2 = new PacketCreator(0x14, 1);
-                //    p2.addByte(0); p2.addByte(0); p2.addByte(0); p2.addByte(3); p2.addByte(0);
-                //    p2.addByte(2);
-                //    p2.addByte(0x2C); p2.addByte(27);
-
-                //    p2.addByte(01);
-                //    p2.addByte(01); p2.addByte(0); p2.addByte(0); p2.addByte(0);
-                //    p2.add16(0);
-                //    Console.WriteLine("Senddd click npc > " + String.Join(",", p2.getData()));
-
-                //    //client.getChar().addPet(14106, 0, 0);
-                //    client.reply(p2.send());
-
-                //    //client.getChar().inventory.addItem(10168, 1, true);
-
-
-
-
-                //    return;
-                //}
-
             }
-            else
+            catch (Exception ex)
             {
-                int idDialog = 10666;
-                PacketCreator p = new PacketCreator(0x14, 1);
-                p.addByte(0); p.add16(0); p.addByte(0); p.addByte(1);
-                client.unkIdNpc = (ushort)(PacketReader.read16(data, 1) + 2);
-                p.add16(ushort.Parse((PacketReader.read16(data, 1) + 2).ToString()));
-                p.add16(0); p.add16(0); p.add16(0);
-                p.add16((ushort)idDialog);//you are hero :))
-
-                Console.WriteLine("Unknown NPC > " + String.Join(",", p.getData()));
-                client.reply(p.send());
+                throw;
             }
-
         }
 
         public void TalkQuestNpc(byte[] data, TSClient client)
@@ -863,39 +887,39 @@ namespace TS_Server.Client
         public void UImportant()
         {
             // Important
-            reply(new PacketCreator(new byte[] { 0x18, 0x07, 0x03, 0x04 }).send());
+            reply(new PacketCreator(new byte[] { 0x18, 0x07, 0x03, 0x04 }).Send());
 
             PacketCreator p = new PacketCreator(0x29);
-            p.add8(0x05); p.add8(0x01); p.add8(0x01);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0x02000000); p.add32(0x00000001); p.add32(0); p.add32(0);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0x00000103); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0x00010400);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0); p.add32(0); p.add32(0x01050000); p.add32(0);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0); p.add32(0); p.add32(0); p.add32(0);
-            p.add32(0); p.add16(0); p.add8(0);
-            reply(p.send());
+            p.Add8(0x05); p.Add8(0x01); p.Add8(0x01);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0x02000000); p.Add32(0x00000001); p.Add32(0); p.Add32(0);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0x00000103); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0x00010400);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0); p.Add32(0); p.Add32(0x01050000); p.Add32(0);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0); p.Add32(0); p.Add32(0); p.Add32(0);
+            p.Add32(0); p.Add16(0); p.Add8(0);
+            reply(p.Send());
 
             //UpdateMap2Npc();
 
             p = new PacketCreator(0x0B);
-            p.add32(0xF24B0204); p.add32(0x00000001); p.add8(0);
-            reply(p.send());
+            p.Add32(0xF24B0204); p.Add32(0x00000001); p.Add8(0);
+            reply(p.Send());
         }
         public void U0602()
         {
-            reply(new PacketCreator(0x06, 0x06).send());
+            reply(new PacketCreator(0x06, 0x06).Send());
         }
         public void U1406()
         {
-            reply(new PacketCreator(0x14, 6).send());
+            reply(new PacketCreator(0x14, 6).Send());
         }
 
         public void disconnect()
@@ -910,15 +934,15 @@ namespace TS_Server.Client
 
                 // Disappear
                 var p = new PacketCreator(0x0D, 0x04);
-                p.add32((uint)accID);
-                chr.replyToMap(p.send(), false);
+                p.Add32((uint)accID);
+                chr.replyToMap(p.Send(), false);
                 p = new PacketCreator(0x01, 0x01);
-                p.add32((uint)accID);
-                chr.replyToMap(p.send(), false);
+                p.Add32((uint)accID);
+                chr.replyToMap(p.Send(), false);
 
                 map.listPlayers.Remove(accID);
                 //map.removePlayer(accID);
-                TSServer.getInstance().removePlayer(accID);
+                TSServer.GetInstance().RemovePlayer(accID);
                 online = false;
             }
         }

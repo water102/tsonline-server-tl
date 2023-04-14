@@ -4,9 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
-using TS_Server.DataTools;
+using Ts.DataTools;
 
-namespace TS_Server.Client
+namespace Ts.Client
 {
     public class TSPet
     {
@@ -124,40 +124,40 @@ namespace TS_Server.Client
         public byte[] sendInfo()
         {
             var p = new PacketCreator();
-            p.addByte((byte)(slot));
-            p.add16(NPCid);
-            p.add32(totalxp);
-            p.addByte(level);
-            p.add16((UInt16)hp);
-            p.add16((UInt16)sp);
-            p.add16((UInt16)mag);
-            p.add16((UInt16)atk);
-            p.add16((UInt16)def);
-            p.add16((UInt16)agi);
-            p.add16((UInt16)hpx);
-            p.add16((UInt16)spx);
-            p.addByte(1);
-            p.addByte(fai);
-            p.addByte(quest);
-            p.add16((ushort)skill_pt);
-            p.addByte((byte)name.Length);
-            p.addBytes(name);
-            p.addByte(skill1_lvl);
-            p.addByte(skill2_lvl);
-            p.addByte(skill3_lvl);
+            p.AddByte((byte)(slot));
+            p.Add16(NPCid);
+            p.Add32(totalxp);
+            p.AddByte(level);
+            p.Add16((ushort)hp);
+            p.Add16((ushort)sp);
+            p.Add16((ushort)mag);
+            p.Add16((ushort)atk);
+            p.Add16((ushort)def);
+            p.Add16((ushort)agi);
+            p.Add16((ushort)hpx);
+            p.Add16((ushort)spx);
+            p.AddByte(1);
+            p.AddByte(fai);
+            p.AddByte(quest);
+            p.Add16((ushort)skill_pt);
+            p.AddByte((byte)name.Length);
+            p.AddBytes(name);
+            p.AddByte(skill1_lvl);
+            p.AddByte(skill2_lvl);
+            p.AddByte(skill3_lvl);
 
             for (int j = 0; j < 6; j++)
             {
                 if (equipment[j] != null)
                 {
-                    p.add16(equipment[j].Itemid);
-                    p.addByte(equipment[j].duration);
-                    p.addZero(7);
+                    p.Add16(equipment[j].Itemid);
+                    p.AddByte(equipment[j].duration);
+                    p.AddZero(7);
                 }
-                else p.addZero(10);
+                else p.AddZero(10);
             }
-            p.addZero(6);
-            return p.getData();
+            p.AddZero(6);
+            return p.GetData();
         }
 
 
@@ -207,51 +207,51 @@ namespace TS_Server.Client
         public void refresh(int prop, byte prop_code)
         {
             PacketCreator p = new PacketCreator(8, 2);
-            p.addByte(4); p.addByte(slot); p.addByte(0);            
-            p.addByte(prop_code);
+            p.AddByte(4); p.AddByte(slot); p.AddByte(0);            
+            p.AddByte(prop_code);
             if (prop >= 0)
-            { p.addByte(0x01); p.add32((UInt32)prop); }
+            { p.AddByte(0x01); p.Add32((uint)prop); }
             else
-            { p.addByte(0x02); p.add32((UInt32)(-prop)); }
-            p.add32(0);
+            { p.AddByte(0x02); p.Add32((uint)(-prop)); }
+            p.Add32(0);
             //Console.WriteLine("Receive Exp PET> " + String.Join(",", p.getData()));
-            owner.reply(p.send());
+            owner.reply(p.Send());
         }
 
         public void refreshFull(byte prop_code, int prop1, int prop2)
         {
             var p = new PacketCreator(8, 2);
-            p.addByte(4); p.addByte(slot); p.addByte(0);
-            p.addByte(prop_code);
+            p.AddByte(4); p.AddByte(slot); p.AddByte(0);
+            p.AddByte(prop_code);
             if (prop1 >= 0)
             {
-                p.addByte(0x01);
-                p.add32((UInt32)prop1);
+                p.AddByte(0x01);
+                p.Add32((uint)prop1);
             }
             else
             {
-                p.addByte(0x02);
-                p.add32((UInt32)(-prop1));
+                p.AddByte(0x02);
+                p.Add32((uint)(-prop1));
             }
-            p.add32((UInt32)prop2);
-            owner.reply(p.send());
+            p.Add32((uint)prop2);
+            owner.reply(p.Send());
         }
         public void sendNewPet()
         {
             refresh(hp, 0x19); refresh(sp, 0x1a);
             PacketCreator p1 = new PacketCreator(0x0f, 1);
-            p1.add32(owner.client.accID);
-            p1.addByte(slot); p1.add16(NPCid); p1.add16(0);
+            p1.Add32(owner.client.accID);
+            p1.AddByte(slot); p1.Add16(NPCid); p1.Add16(0);
             
-            p1.addByte(quest);
-            owner.reply(p1.send());
+            p1.AddByte(quest);
+            owner.reply(p1.Send());
             PacketCreator p2 = new PacketCreator(0x0f, 7);
-            p2.add32(NPCid); p2.addByte(slot); p2.add16(NPCid);
-            p2.addZero(7);
+            p2.Add32(NPCid); p2.AddByte(slot); p2.Add16(NPCid);
+            p2.AddZero(7);
             
-            p2.addByte(quest); p2.addByte((byte)name.Length);
-            p2.addBytes(name);
-            owner.reply(p2.send());
+            p2.AddByte(quest); p2.AddByte((byte)name.Length);
+            p2.AddBytes(name);
+            owner.reply(p2.Send());
         }
 
         public void savePetDB(MySqlConnection conn, bool newPet)

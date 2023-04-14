@@ -1,0 +1,6 @@
+﻿
+server	localhost
+database	ts
+uid	root
+password	mysqlpw
+port	49153

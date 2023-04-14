@@ -1,8 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using TS_Server.Server;
 using TS_Server.DataTools;
 using TS_Server.Client;
@@ -15,7 +12,6 @@ namespace TS_Server
         private ServerHandler handler = null;
         private TSWorld world;
         private Dictionary<uint, TSClient> listPlayers;
-        private Dictionary<byte[], TSCharacter> listNames;
 
         public static TSServer getInstance()
         {
@@ -78,7 +74,7 @@ namespace TS_Server
 
         static void Main(string[] args)
         {
-            TSServer.getInstance().run();
+            getInstance().run();
             Console.ReadLine();
         }
 

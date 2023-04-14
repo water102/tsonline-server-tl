@@ -3,12 +3,12 @@ using System.Collections.Generic;
 using System.Timers;
 using System.Text;
 using MySql.Data.MySqlClient;
-using TS_Server.DataTools;
-using TS_Server;
-using TS_Server.Server;
-using TS_Server.Client;
+using Ts.DataTools;
+using Ts;
+using Ts.Server;
+using Ts.Client;
 
-namespace TS_Server.Client
+namespace Ts.Client
 {
     public class TSCharacter
     {
@@ -246,20 +246,20 @@ namespace TS_Server.Client
         public void loginChar()
         {
             loadCharDB();
-            addSummonSkill(10);
+            AddSummonSkill(10);
 
             client.online = true; 
             
             refreshChr();
 
-            reply(new PacketCreator(new byte[] { 0x14, 0x08 }).send());
-            reply(new PacketCreator(new byte[] { 0x14, 0x21, 0x00 }).send());
+            reply(new PacketCreator(new byte[] { 0x14, 0x08 }).Send());
+            reply(new PacketCreator(new byte[] { 0x14, 0x21, 0x00 }).Send());
 
             sendLook(false);
             sendInfo();
             sendPetInfo();
 
-            reply(new PacketCreator(new byte[] { 0x21, 2, 0, 0 }).send());
+            reply(new PacketCreator(new byte[] { 0x21, 2, 0, 0 }).Send());
 
             //0x17, 5 for invent, 0x1e, 0x1 for storage, 0x017, 0x2f for bag
             inventory.sendItems(0x17, 5);
@@ -277,7 +277,7 @@ namespace TS_Server.Client
 
             refreshFull(0x6f, 1, 1); //???? ที่เพิ่ม?
 
-            TSServer.getInstance().addPlayer(client);
+            TSServer.GetInstance().AddPlayer(client);
             sendUpdateTeam();
         }
 
@@ -313,10 +313,10 @@ namespace TS_Server.Client
             pet[slot - 1].name = newName;
 
             PacketCreator p = new PacketCreator(0xf, 9);
-            p.add32(client.accID);
-            p.add8(slot);
-            p.addBytes(pet[slot - 1].name);
-            reply(p.send());
+            p.Add32(client.accID);
+            p.Add8(slot);
+            p.AddBytes(pet[slot - 1].name);
+            reply(p.Send());
         }
         public void removePet(byte slot)
         {
@@ -332,9 +332,9 @@ namespace TS_Server.Client
                 nextPet();
 
                 PacketCreator p = new PacketCreator(0xf, 2);
-                p.add32(client.accID);
-                p.add8(slot);
-                reply(p.send());
+                p.Add32(client.accID);
+                p.Add8(slot);
+                reply(p.Send());
             }
         }
 
@@ -378,111 +378,111 @@ namespace TS_Server.Client
         public void sendLook(bool forReborn)
         {
             var p = new PacketCreator(3);
-            p.add32(client.accID);
-            p.addByte(sex);
-            p.addByte(ghost);
-            p.addByte(god);
-            p.add16(mapID);
-            p.add16(mapX);
-            p.add16(mapY);
-            p.addByte(style);
-            p.addByte(hair);
-            p.addByte(face);
-            p.add32(color1);
-            p.add32(color2);
-            p.addByte(nb_equips);
+            p.Add32(client.accID);
+            p.AddByte(sex);
+            p.AddByte(ghost);
+            p.AddByte(god);
+            p.Add16(mapID);
+            p.Add16(mapX);
+            p.Add16(mapY);
+            p.AddByte(style);
+            p.AddByte(hair);
+            p.AddByte(face);
+            p.Add32(color1);
+            p.Add32(color2);
+            p.AddByte(nb_equips);
             for (int i = 0; i < 6; i++)
-                if (equipment[i] != null) p.add16(equipment[i].Itemid);
-            p.add32(0);
-            p.addByte(5);
-            p.addByte(rb);
-            p.addByte(job);
+                if (equipment[i] != null) p.Add16(equipment[i].Itemid);
+            p.Add32(0);
+            p.AddByte(5);
+            p.AddByte(rb);
+            p.AddByte(job);
             if (!forReborn)
-                p.addBytes(name);
-            reply(p.send());
+                p.AddBytes(name);
+            reply(p.Send());
         }
 
         public byte[] sendLookForOther()
         {
             var p = new PacketCreator(0x03);
-            p.add32(client.accID);
-            p.addByte(sex);
-            p.addByte(element);
-            p.addByte(level);
-            p.addByte(ghost);
-            p.addByte(god);
-            p.add16(mapID); 
-            p.add16(mapX); 
-            p.add16(mapY); 
-            p.addByte(style); 
-            p.addByte(hair);
-            p.addByte(face); 
-            p.add32(color1);
-            p.add32(color2); 
-            p.addByte(nb_equips);
+            p.Add32(client.accID);
+            p.AddByte(sex);
+            p.AddByte(element);
+            p.AddByte(level);
+            p.AddByte(ghost);
+            p.AddByte(god);
+            p.Add16(mapID); 
+            p.Add16(mapX); 
+            p.Add16(mapY); 
+            p.AddByte(style); 
+            p.AddByte(hair);
+            p.AddByte(face); 
+            p.Add32(color1);
+            p.Add32(color2); 
+            p.AddByte(nb_equips);
             for (int i = 0; i < 6; i++)
-                if (equipment[i] != null) p.add16(equipment[i].Itemid);
+                if (equipment[i] != null) p.Add16(equipment[i].Itemid);
 
-            p.add32(0);
-            p.add16(0); //p.addByte(5);
-            p.addByte(rb);
-            p.addByte(job);
-            p.addBytes(name);
+            p.Add32(0);
+            p.Add16(0); //p.addByte(5);
+            p.AddByte(rb);
+            p.AddByte(job);
+            p.AddBytes(name);
 
-            return p.send();
+            return p.Send();
         }
 
         public byte[] setExpress(byte expressType, byte expressCode)
         {
             var p = new PacketCreator(0x20);
-            p.add8(expressType);
-            p.add32(client.accID);
-            p.add8(expressCode);
+            p.Add8(expressType);
+            p.Add32(client.accID);
+            p.Add8(expressCode);
 
-            return p.send();
+            return p.Send();
         }
 
         public void sendInfo()
         {
             var p = new PacketCreator(5, 3);
-            p.addByte(element);
-            p.add16((UInt16)hp);
-            p.add16((UInt16)sp);
-            p.add16((UInt16)mag);
-            p.add16((UInt16)atk);
-            p.add16((UInt16)def);
-            p.add16((UInt16)agi);
-            p.add16((UInt16)hpx);
-            p.add16((UInt16)spx);
-            p.addByte(level);
-            p.add32(totalxp);
-            p.add16((UInt16)skill_point);
-            p.add16((UInt16)stt_point);
-            p.add32(honor);
-            p.add16((UInt16)hp_max);
-            p.add16((UInt16)sp_max);
-            p.add32((UInt32)atk2); 
-            p.add32((UInt32)def2); 
-            p.add32((UInt32)mag2);  
-            p.add32((UInt32)agi2);
-            p.add32((UInt32)hp2);
-            p.add32((UInt32)sp2);
+            p.AddByte(element);
+            p.Add16((ushort)hp);
+            p.Add16((ushort)sp);
+            p.Add16((ushort)mag);
+            p.Add16((ushort)atk);
+            p.Add16((ushort)def);
+            p.Add16((ushort)agi);
+            p.Add16((ushort)hpx);
+            p.Add16((ushort)spx);
+            p.AddByte(level);
+            p.Add32(totalxp);
+            p.Add16((ushort)skill_point);
+            p.Add16((ushort)stt_point);
+            p.Add32(honor);
+            p.Add16((ushort)hp_max);
+            p.Add16((ushort)sp_max);
+            p.Add32((uint)atk2); 
+            p.Add32((uint)def2); 
+            p.Add32((uint)mag2);  
+            p.Add32((uint)agi2);
+            p.Add32((uint)hp2);
+            p.Add32((uint)sp2);
             //ค่ายทหาร
-            p.add16(500);
-            p.add16(500);
-            p.add16(500);
-            p.add16(500);
-            p.add16(500);
+            p.Add16(500);
+            p.Add16(500);
+            p.Add16(500);
+            p.Add16(500);
+            p.Add16(500);
             //ปฏิบัติ ฯลฯ หักบัญชี
-            p.addZero(0x2B);
+            p.AddZero(0x2B);
 
             foreach (ushort s in skill.Keys)
             {
-                p.add16(s);
-                p.addByte(skill[s]);
+                p.Add16(s);
+                p.AddByte(skill[s]);
             }
 
-            reply(p.send());
+            reply(p.Send());
 
             //บอลจุติ info
             if (rb == 2)
@@ -492,21 +492,21 @@ namespace TS_Server.Client
         public void sendBallList()
         {
             PacketCreator p = new PacketCreator(0x17, 0x4d);
-            p.add8(ball_point);
+            p.Add8(ball_point);
             for (int i = 0; i < 12; i++)
                 if (ballList[i])
-                    p.add8((byte)(i + 1));
-            reply(p.send());
+                    p.Add8((byte)(i + 1));
+            reply(p.Send());
 
             PacketCreator p1 = new PacketCreator(0x17, 0x4e);
             for (int i = 0; i < 8; i++)
                 if (skill_rb2[i] != 0)
                 {
-                    p1.add8((byte)(i + 1));
-                    p1.add16(skill_rb2[i]);
+                    p1.Add8((byte)(i + 1));
+                    p1.Add16(skill_rb2[i]);
                 }
 
-            reply(p1.send());
+            reply(p1.Send());
         }
 
         public void sendUpdateTeam()
@@ -514,22 +514,22 @@ namespace TS_Server.Client
             if (isTeamLeader())
             {
                 var p = new PacketCreator(0x0D);
-                p.add8(6);
-                p.add32((uint)client.accID);
-                p.add8((byte)(party.member.Count-1));
+                p.Add8(6);
+                p.Add32((uint)client.accID);
+                p.Add8((byte)(party.member.Count-1));
 
                 foreach (TSCharacter c in party.member)
                 {
                     c.refreshTeam();
                     if (c.client.accID != party.leader_id)
-                        p.add32((uint)c.client.accID);
+                        p.Add32((uint)c.client.accID);
                 }
-                replyToMap(p.send(), true);
+                replyToMap(p.Send(), true);
             }
 
             var p1 = new PacketCreator(0x0f);
-            p1.add8(0x07);
-            p1.add32((uint)client.accID);
+            p1.Add8(0x07);
+            p1.Add32((uint)client.accID);
             if (pet != null)
             {
                 for (int i = 0; i < pet.Length; i++)
@@ -537,25 +537,25 @@ namespace TS_Server.Client
                     //&& pet[i].NPCid != horseID
                     if (pet[i] != null)
                     {
-                        p1.addByte((byte)(i + 1));
-                        p1.add16(pet[i].NPCid);
-                        p1.addZero(7);
-                        p1.add8(0x01);
-                        p1.addByte((byte)pet[i].name.Length);
-                        p1.addBytes(pet[i].name);
+                        p1.AddByte((byte)(i + 1));
+                        p1.Add16(pet[i].NPCid);
+                        p1.AddZero(7);
+                        p1.Add8(0x01);
+                        p1.AddByte((byte)pet[i].name.Length);
+                        p1.AddBytes(pet[i].name);
                     }
                 }
             }
-            replyToMap(p1.send(), false);
+            replyToMap(p1.Send(), false);
 
             // Update horse ride (อัพเวลาขี่ม้า)
             if (horseID > 0)
             {
-                rideHorse(true, horseID);
+                RideHorse(true, horseID);
             }
             else
             {
-                rideHorse(false);
+                RideHorse(false);
             }
         }
         public void sendPetInfo()
@@ -563,28 +563,28 @@ namespace TS_Server.Client
             var p1 = new PacketCreator(0x0f, 8);
             for (int i = 0; i < pet.Length; i++)
                 if (pet[i] != null)
-                    p1.addBytes(pet[i].sendInfo());
-            reply(p1.send());
+                    p1.AddBytes(pet[i].sendInfo());
+            reply(p1.Send());
 
             //สัตว์เลี้ยงในรถ
-            reply(new PacketCreator(new byte[] { 0x0f, 0x14, 1, 0, 0 }).send());
-            reply(new PacketCreator(new byte[] { 0x0f, 0x14, 2, 0, 0 }).send());
-            reply(new PacketCreator(new byte[] { 0x0f, 0x14, 3, 0, 0 }).send());
-            reply(new PacketCreator(new byte[] { 0x0f, 0x14, 4, 0, 0 }).send());
+            reply(new PacketCreator(new byte[] { 0x0f, 0x14, 1, 0, 0 }).Send());
+            reply(new PacketCreator(new byte[] { 0x0f, 0x14, 2, 0, 0 }).Send());
+            reply(new PacketCreator(new byte[] { 0x0f, 0x14, 3, 0, 0 }).Send());
+            reply(new PacketCreator(new byte[] { 0x0f, 0x14, 4, 0, 0 }).Send());
 
-            reply(new PacketCreator(new byte[] { 0x0f, 0x0a }).send());
+            reply(new PacketCreator(new byte[] { 0x0f, 0x0a }).Send());
 
             //สัตว์เลี้ยงในโรงแรม
-            reply(new PacketCreator(new byte[] { 0x0f, 0x12, 1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0 }).send());
+            reply(new PacketCreator(new byte[] { 0x0f, 0x12, 1, 0, 0, 2, 0, 0, 3, 0, 0, 4, 0, 0 }).Send());
 
-            reply(new PacketCreator(new byte[] { 0x0f, 0x13, 1, 0 }).send());
-            if (pet_battle != -1)
+            reply(new PacketCreator(new byte[] { 0x0f, 0x13, 1, 0 }).Send());
+            if (pet_battle != -1 && pet[pet_battle] != null)
             {
                 var p2 = new PacketCreator(0x13);
-                p2.addByte(1);
-                p2.add16(pet[pet_battle].NPCid);
-                p2.add16(0);
-                reply(p2.send());
+                p2.AddByte(1);
+                p2.Add16(pet[pet_battle].NPCid);
+                p2.Add16(0);
+                reply(p2.Send());
             }
 
             if (pet != null)
@@ -600,19 +600,19 @@ namespace TS_Server.Client
             for (int i = 0; i < 6; i++)
                 if (equipment[i] != null)
                 {
-                    p.add16(equipment[i].Itemid);
-                    p.addByte(equipment[i].duration);
-                    p.addZero(7);
+                    p.Add16(equipment[i].Itemid);
+                    p.AddByte(equipment[i].duration);
+                    p.AddZero(7);
                 }
-            reply(p.send());
+            reply(p.Send());
         }
 
         public void sendGold()
         {
             var p = new PacketCreator(0x1a, 4);
-            p.add32(gold);
-            p.add32(gold_bank);
-            reply(p.send());
+            p.Add32(gold);
+            p.Add32(gold_bank);
+            reply(p.Send());
         }
 
         public void sendHotkey()
@@ -622,19 +622,19 @@ namespace TS_Server.Client
             for (byte i = 1; i <= 10; i++)
                 if (hotkey[i - 1] != 0)
                 {
-                    p.add8(2);
-                    p.add16(hotkey[i - 1]);
-                    p.add8(i);
+                    p.Add8(2);
+                    p.Add16(hotkey[i - 1]);
+                    p.Add8(i);
                 }
-            reply(p.send());
+            reply(p.Send());
         }
 
         public void sendVoucher()
         {
             var p = new PacketCreator(0x23, 4);
-            p.add32(999999);
-            p.addZero(12);
-            reply(p.send());
+            p.Add32(999999);
+            p.AddZero(12);
+            reply(p.Send());
         }
 
         public void refreshChr()
@@ -654,9 +654,9 @@ namespace TS_Server.Client
         {
             if (!NpcData.npcList.ContainsKey(outfitId)) return;
                 PacketCreator p = new PacketCreator( 5, 5 );
-                p.add32(client.accID);
-                p.add16(outfitId);
-                replyToMap(p.send(), true);
+                p.Add32(client.accID);
+                p.Add16(outfitId);
+                replyToMap(p.Send(), true);
         }
         public void refreshBonus()
         {
@@ -675,29 +675,29 @@ namespace TS_Server.Client
 
             if (party != null && team)
             {
-                p.addByte(0x03);
-                p.add32((uint)client.accID);
+                p.AddByte(0x03);
+                p.Add32((uint)client.accID);
             }
             else
-                p.addByte(0x01);
+                p.AddByte(0x01);
 
-            p.addByte(prop_code);
+            p.AddByte(prop_code);
             if (prop >= 0)
             {
-                p.addByte(0x01);
-                p.add32((UInt32)prop);
+                p.AddByte(0x01);
+                p.Add32((uint)prop);
             }
             else
             {
-                p.addByte(0x02);
-                p.add32((UInt32)(-prop));
+                p.AddByte(0x02);
+                p.Add32((uint)(-prop));
             }
-            p.add32(0);
+            p.Add32(0);
             //Console.WriteLine("Receive Exp CHAR> " + String.Join(",", p.getData()));
             if (party != null && team)
-                replyToTeam(p.send());
+                replyToTeam(p.Send());
             else
-                reply(p.send());
+                reply(p.Send());
 
         }
 
@@ -724,28 +724,28 @@ namespace TS_Server.Client
         public void refreshFull(byte prop_code, int prop1, int prop2)
         {
             var p = new PacketCreator(8, 1);
-            p.addByte(prop_code);
+            p.AddByte(prop_code);
             if (prop1 >= 0)
             {
-                p.addByte(0x01);
-                p.add32((UInt32)prop1);
+                p.AddByte(0x01);
+                p.Add32((uint)prop1);
             }
             else
             {
-                p.addByte(0x02);
-                p.add32((UInt32)(-prop1));
+                p.AddByte(0x02);
+                p.Add32((uint)(-prop1));
             }
-            p.add32((UInt32)prop2);
+            p.Add32((uint)prop2);
 
-            reply(p.send());
+            reply(p.Send());
         }
 
         public void announce(string msg)
         {
             var p = new PacketCreator(2, 0x0b);
-            p.add32(0);
-            p.addString(msg);
-            reply(p.send());
+            p.Add32(0);
+            p.AddString(msg);
+            reply(p.Send());
         }
 
         public void saveCharDB(MySqlConnection conn)
@@ -937,21 +937,15 @@ namespace TS_Server.Client
         }
         public void replyToMap(byte[] data, bool self)
         {
-            client.map.BroadCast(this.client, data, self);
+            client.map.BroadCast(client, data, self);
         }
         public void replyToAll(byte[] data, bool self)
         {
-            foreach (TSMap m in TSWorld.getInstance().listMap.Values)
-            {
-                m.BroadCast(client, data, self);
-            }
+            TSServer.GetInstance().BroadCast(client, data, self);
         }
         public void replyToTeam(byte[] data)
         {
-            foreach (TSCharacter c in party.member)
-            {
-                c.reply(data);
-            }
+            party.BroadCast(data);
         }
 
         public bool isTeamLeader()
@@ -1173,7 +1167,7 @@ namespace TS_Server.Client
             sendBallList();
         }
 
-        public bool setBattlePet(ushort npcid)
+        public bool SetBattlePet(ushort npcid)
         {
             for (int i = 0; i < 4; i++)
                 if (pet[i] != null)
@@ -1185,7 +1179,7 @@ namespace TS_Server.Client
             return false;
         }
 
-        public bool unsetBattlePet()
+        public bool UnsetBattlePet()
         {
             if (pet_battle != -1)
             {
@@ -1195,7 +1189,7 @@ namespace TS_Server.Client
             return false;
         }
 
-        public void rebornChar(byte nb_reborn, byte j)
+        public void RebornChar(byte nb_reborn, byte j)
         {
             if (level < 120) return;
             if (rb != nb_reborn - 1) return;
@@ -1237,7 +1231,7 @@ namespace TS_Server.Client
 
         }
 
-        public bool checkPetReborn(byte nb_reborn) //ตรวจสอบว่ามีสัตว์เลี้ยงที่มีสิทธิ์ในการเกิดใหม่
+        public bool CheckPetReborn(byte nb_reborn) //ตรวจสอบว่ามีสัตว์เลี้ยงที่มีสิทธิ์ในการเกิดใหม่
 
         {
             int rb_prop = nb_reborn == 1 ? 65 : 67;
@@ -1259,7 +1253,7 @@ namespace TS_Server.Client
             return false;
         }
 
-        public void rebornPet(byte nb_reborn, byte slot)
+        public void RebornPet(byte nb_reborn, byte slot)
         {
             int rb_prop = nb_reborn == 1 ? 65 : 67;
             ushort rb_item = 0; //locket or star
@@ -1285,7 +1279,7 @@ namespace TS_Server.Client
             addPet(pet_rb, stt_point_bonus, 1);
         }
 
-        public void rideHorse(bool ride, ushort horseid = 0)
+        public void RideHorse(bool ride, ushort horseid = 0)
         {
             if (ride)
             {
@@ -1297,10 +1291,10 @@ namespace TS_Server.Client
                             if (NpcData.npcList[horseid].type == 9)
                             {
                                 PacketCreator p = new PacketCreator(0xf, 5);
-                                p.add32(this.client.accID);
-                                p.add16(horseid);
-                                p.addZero(6);
-                                replyToMap(p.send(), true);
+                                p.Add32(this.client.accID);
+                                p.Add16(horseid);
+                                p.AddZero(6);
+                                replyToMap(p.Send(), true);
                                 break;
                             }
                         }
@@ -1310,23 +1304,24 @@ namespace TS_Server.Client
             else
             {
                 PacketCreator p1 = new PacketCreator(0xf, 6);
-                p1.add32(this.client.accID);
-                p1.addZero(2);
-                replyToMap(p1.send(), true);
+                p1.Add32(this.client.accID);
+                p1.AddZero(2);
+                replyToMap(p1.Send(), true);
                 horseID = 0;
             }            
         }
 
-        public void setCharElement(byte element)
+        public void SetCharElement(byte element)
         {
             var c = new TSMysqlConnection();
 
             c.updateQuery("UPDATE chars SET `element` = " + element + " WHERE id=" + charId);
             this.element = element;
         }
-        public void sleep()
+
+        public void Sleep()
         {            
-            reply(new PacketCreator(0x1f, 0xa).send());
+            reply(new PacketCreator(0x1f, 0xa).Send());
 
             setHp(1000000);
             refresh(hp, 0x19);
@@ -1341,11 +1336,11 @@ namespace TS_Server.Client
                     pet[i].refresh(pet[i].sp, 0x1a);
                 }
 
-            client.reply(new PacketCreator(new byte[] { 0x1f, 1, 0 }).send());
+            client.reply(new PacketCreator(new byte[] { 0x1f, 1, 0 }).Send());
 
         }
 
-        public void addSummonSkill(byte level)
+        public void AddSummonSkill(byte level)
         {
             if (skill.ContainsKey(14026))
             {
@@ -1354,7 +1349,7 @@ namespace TS_Server.Client
             skill.Add(14026, level);
         }
 
-        public void addSummonSkill()
+        public void AddSummonSkill()
         {
             if (skill.ContainsKey(14026))
             {
@@ -1382,7 +1377,7 @@ namespace TS_Server.Client
             }
         }
 
-        public void removeSummonSkill()
+        public void RemoveSummonSkill()
         {
             if (skill.ContainsKey(14026))
             {
