@@ -1,5 +1,4 @@
-﻿using System;
-using System.Numerics;
+﻿using System.Numerics;
 using System.Text;
 
 namespace TsServer.Buffer
@@ -83,6 +82,26 @@ namespace TsServer.Buffer
             {
                 pos += 4;
             }
+        }
+
+        public static byte[] Read(this byte[] data, int start, int length)
+        {
+            var value = new byte[length];
+            var ms = new MemoryStream(data);
+            try
+            {
+                ms.Seek(start, SeekOrigin.Begin); // Seek to position
+                ms.Read(value, 0, length);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.StackTrace);
+            }
+            finally
+            {
+                ms.Close();
+            }
+            return value;
         }
     }
 }

@@ -75,7 +75,7 @@ namespace Ts.PacketHandlers
         public ushort[] getRandomBattle(TSClient client)
         {
             ushort[] ret = new ushort[10];
-            List<byte> exclude = new List<byte>(new byte[] { 11, 12, 14, 15, 17, 20, 21, 22, 23, 24, 25, 28, 30, 35, 51, 52, 53 });
+            List<byte> exclude = new(new byte[] { 11, 12, 14, 15, 17, 20, 21, 22, 23, 24, 25, 28, 30, 35, 51, 52, 53 });
             int pos = 0;
             int maxlvl = Math.Min(client.getChar().level + 5, 200);
             int minlvl = Math.Min(Math.Max(client.getChar().level - 5, 1), 195);

@@ -37,7 +37,6 @@ namespace Ts
             NpcData.writeToFile("npc.txt");
 
             Console.WriteLine("Loading Eve data ...");
-            OldEveData.loadAllWarp();
             EveData.LoadData("data/eve.Emg");
 
             Console.WriteLine("Loading Warp data ...");

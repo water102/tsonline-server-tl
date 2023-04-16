@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using MySql.Data.MySqlClient;
 using Ts.Server;
 using System.Globalization;
+using TsServer.Models;
 
 namespace Ts.Client
 {
@@ -24,7 +25,7 @@ namespace Ts.Client
         public TSWorld world;
         public ushort idNpcTalking;
         public ushort unkIdNpc;
-        public DataTools.Step currentStep;
+        public Step currentStep;
         public ushort idxDialog;
         public ushort selectMenu;
         public ushort idxQ = 0;
@@ -428,11 +429,11 @@ namespace Ts.Client
                 client.continueMoving();
                 return;
             }
-            DataTools.Step step = client.currentStep;
+            TsServer.Models.Step step = client.currentStep;
             if (client.selectMenu != 0)
             {
                 //Case select menu -->
-                DataTools.Step temp_step = DataTools.EveData.listMapData[client.map.mapid].steps.Find(item => client.selectMenu == item.optionId & item.idDialog == client.idDialog);
+                TsServer.Models.Step temp_step = DataTools.EveData.listMapData[client.map.mapid].steps.Find(item => client.selectMenu == item.optionId & item.idDialog == client.idDialog);
                 if (temp_step.packageSend != null)
                 {
                     step = temp_step;
@@ -449,7 +450,7 @@ namespace Ts.Client
             }
             if (client.idxQ > 0)
             {
-                DataTools.Step temp_step = DataTools.EveData.listMapData[client.map.mapid].steps.Find(item => client.idxQ == item.qIndex & item.resBattle == client.resBattle);
+                TsServer.Models.Step temp_step = DataTools.EveData.listMapData[client.map.mapid].steps.Find(item => client.idxQ == item.qIndex & item.resBattle == client.resBattle);
                 client.idxQ = 0;
                 if (temp_step.packageSend != null)
                 {
@@ -467,11 +468,11 @@ namespace Ts.Client
             }
             if (client.finishQ == true)
             {
-                DataTools.Step temp_step = new DataTools.Step();
-                DataTools.Step[] steps = DataTools.EveData.listMapData[client.map.mapid].steps.FindAll(item => item.npcIdInMap == client.idNpcTalking).ToArray();
+                TsServer.Models.Step temp_step = new TsServer.Models.Step();
+                TsServer.Models.Step[] steps = DataTools.EveData.listMapData[client.map.mapid].steps.FindAll(item => item.npcIdInMap == client.idNpcTalking).ToArray();
                 for (int i = 0; i < steps.Length; i++)
                 {
-                    DataTools.Step item = steps[i];
+                    TsServer.Models.Step item = steps[i];
                     if (item.stepId == 15)
                         Console.WriteLine(item.stepId);
                     if (item.requiredQuests.Count > 0)
@@ -507,7 +508,7 @@ namespace Ts.Client
                 client.continueMoving();
                 return;
             }
-            List<DataTools.PackageSend> packages = step.packageSend.ToList();
+            List<PackageSend> packages = step.packageSend.ToList();
             byte[] packageToSend = packages.ElementAt(client.idxDialog).package;
 
             p2 = new PacketCreator(0x14, 1);
@@ -593,12 +594,12 @@ namespace Ts.Client
                     ushort idNpc = DataTools.EveData.listMapData[client.map.mapid].npcs[index].idNpc;
                     client.idNpc = idNpc;
 
-                    DataTools.Step[] steps = DataTools.EveData.listMapData[client.map.mapid].steps.FindAll(item => item.npcIdInMap == id_talking).ToArray();
+                    TsServer.Models.Step[] steps = DataTools.EveData.listMapData[client.map.mapid].steps.FindAll(item => item.npcIdInMap == id_talking).ToArray();
                     //Console.WriteLine("Count >> " + steps.Count);
-                    var stepValidate = new List<DataTools.Step>();
+                    var stepValidate = new List<TsServer.Models.Step>();
                     for (int i = 0; i < steps.Length; i++)
                     {
-                        DataTools.Step step = steps[i];
+                        TsServer.Models.Step step = steps[i];
                         if (step.requiredQuests.Count > 0)
                         {
                             bool isValidate = true;

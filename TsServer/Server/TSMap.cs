@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Ts.Client;
 using Ts.DataTools;
+using TsServer.Models;
 
 namespace Ts.Server
 {
