@@ -6,10 +6,15 @@ namespace TsServer.Buffer
 {
     public static class ByteArrayEx
     {
+        public static T GetNumberAt<T>(this byte[] _buffer, uint index) where T : INumber<T>
+        {
+            return T.Parse(_buffer[index].ToString(), null);
+        }
+
         public static T GetNumberAt<T>(this byte[] _buffer, uint index, ref uint pos) where T : INumber<T>
         {
             pos = index;
-            return T.Parse(_buffer[index].ToString(), null);
+            return GetNumberAt<T>(_buffer, index);
         }
 
         public static string GetString(this byte[] _buffer, int startAt, int count)
@@ -19,7 +24,7 @@ namespace TsServer.Buffer
 
         public static ushort Read16(this byte[] _buffer, uint index)
         {
-                return (ushort)(_buffer[index] + (_buffer[index + 1] << 8));
+            return (ushort)(_buffer[index] + (_buffer[index + 1] << 8));
         }
 
         public static ushort Read16(this byte[] _buffer, uint index, ref uint pos)

@@ -17,6 +17,10 @@ namespace TsServer.Buffer
         }
 
         private uint _pos;
+        public uint Pos
+        {
+            get => _pos;
+        }
 
         public byte this[uint index] => _buffer[index];
 
@@ -61,6 +65,11 @@ namespace TsServer.Buffer
         public T GetNumberAt<T>(uint index) where T : INumber<T>
         {
             return _buffer.GetNumberAt<T>(index, ref _pos);
+        }
+
+        public T GetNumber<T>() where T : INumber<T>
+        {
+            return _buffer.GetNumberAt<T>(_pos, ref _pos);
         }
 
         public ushort Read16()

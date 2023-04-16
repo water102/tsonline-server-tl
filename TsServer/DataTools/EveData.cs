@@ -43,7 +43,6 @@ namespace Ts.DataTools
         public ushort unk_3;
         public ushort totalTalking;
         public byte type;
-
     }
     public struct PackageSend
     {
@@ -181,28 +180,6 @@ namespace Ts.DataTools
             }
         }
 
-        public static ushort read16(byte[] data, int off)
-        {
-            try
-            {
-                return (ushort)(data[off] + (data[off + 1] << 8));
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        public static ushort read16_reverse(byte[] data, int off)
-        {
-            return (ushort)(data[off + 1] + (data[off] << 8));
-        }
-
-        public static uint read32(byte[] data, int off)
-        {
-            return (uint)(data[off] + (data[off + 1] << 8) + (data[off + 2] << 16) + (data[off + 3] << 24));
-        }
-
         public static Tuple<ushort, ushort>? loadCoor(ushort mapid, ushort destid, ushort warpId)
         {
             if (!listMapData.ContainsKey(mapid)) return null;
@@ -307,41 +284,38 @@ namespace Ts.DataTools
         public static void LoadWarp(MapData mapData)
         {
             var tsBuffer = TsBuffer.LoadFromFile(fileLocation, mapData.bufferInformation);
-            int pos = loadNpcs(mapData, tsBuffer.Buffer);
-            pos = loadItems(mapData, tsBuffer.Buffer, pos);
-            pos = loadUnknowData1(tsBuffer.Buffer, pos);
-            pos = loadWarps(mapData, tsBuffer.Buffer, pos);
-            pos = loadUnknowData2(tsBuffer.Buffer, pos);
-            pos = loadQuestsAndSteps(mapData, tsBuffer.Buffer, pos);
+            var pos = LoadNpcs(mapData, tsBuffer);
+            pos = LoadItems(mapData, tsBuffer);
+            pos = LoadUnknowData1(tsBuffer);
+            pos = LoadWarpPoints(mapData, tsBuffer);
+            pos = LoadUnknowData2(tsBuffer);
+            pos = LoadQuestsAndSteps(mapData, tsBuffer);
 
-            if (pos < 0) return;
-            loadBattles(mapData, tsBuffer.Buffer, pos);
+            if (pos == 0) return;
+            LoadBattles(mapData, tsBuffer);
         }
 
-        private static void loadBattles(MapData mapData, byte[] mapBuffer, int pos)
+        private static void LoadBattles(MapData mapData, TsBuffer tsBuffer)
         {
             mapData.battleListOnMap.Clear();
-            ushort nb_battle = read16(mapBuffer, pos);
-            pos += 2;
+            ushort nb_battle = tsBuffer.Read16();
             ushort[] listNpcId;
             for (int i = 0; i < nb_battle; i++)
             {
                 ushort defaultGround = 876;
-                ushort index = mapBuffer[pos];
-                pos += 5;
-                ushort quantityNpc = mapBuffer[pos];
-                pos += 2;
+                ushort index = tsBuffer.GetNumber<ushort>();
+                tsBuffer.IncreasePosition(5);
+                ushort quantityNpc = tsBuffer.GetNumber<ushort>();
+                tsBuffer.IncreasePosition(2);
                 listNpcId = new ushort[11];
                 for (int j = 0; j < quantityNpc; j++)
                 {
-                    ushort indexNpc = read16(mapBuffer, pos);
-                    pos += 2;
-                    ushort npcId = read16(mapBuffer, pos);
-                    pos += 2;
-                    ushort posNpc = (ushort)(mapBuffer[pos] - 1);
-                    pos++;
-                    ushort turnBatle = mapBuffer[pos];
-                    pos++;
+                    ushort indexNpc = tsBuffer.Read16();
+                    ushort npcId = tsBuffer.Read16();
+                    ushort posNpc = (ushort)(tsBuffer.GetNumber<ushort>() - 1);
+                    tsBuffer.IncreasePosition(1);
+                    ushort turnBatle = tsBuffer.GetNumber<ushort>();
+                    tsBuffer.IncreasePosition(1);
                     //if (mapid == 12001) { Console.WriteLine(" index >>> " + indexNpc);
                     //    Console.WriteLine(" index >>> " + indexNpc);
                     //    Console.WriteLine(" npcId >>> " + npcId);
@@ -352,36 +326,31 @@ namespace Ts.DataTools
                     listNpcId[posNpc] = npcId;
                 }
                 mapData.battleListOnMap.Add(index, new BattleInfo(defaultGround, listNpcId));
-                ushort unknow_1 = read16(mapBuffer, pos);
-
-                pos += 2;
-                ushort unknow_2 = read16(mapBuffer, pos);
-
-                pos += 2;
+                ushort unknow_1 = tsBuffer.Read16();
+                ushort unknow_2 = tsBuffer.Read16();
                 for (int j = 0; j < unknow_2; j++)
                 {
-                    ushort unknow_3 = mapBuffer[pos + 11];
-                    pos += 12;
-                    pos += unknow_3 * 13;
+                    ushort unknow_3 = tsBuffer[tsBuffer.Pos + 11];
+                    tsBuffer.IncreasePosition(12);
+                    tsBuffer.IncreasePosition(unknow_3 * (uint)13);
                 }
             }
         }
 
-        private static int loadQuestsAndSteps(MapData mapData, byte[] mapBuffer, int pos)
+        private static uint LoadQuestsAndSteps(MapData mapData, TsBuffer tsBuffer)
         {
             var mapid = mapData.id;
             var steps = mapData.steps;
 
-            ushort nb_talk_quest = read16(mapBuffer, pos);
-            pos += 2;
+            ushort nb_talk_quest = tsBuffer.Read16();
             if (nb_talk_quest == 0)
             {
-                return -1;
+                return 0;
             }
 
-            if (pos >= mapBuffer.Length)
+            if (tsBuffer.Pos >= tsBuffer.Buffer.Length)
             {
-                return -1;
+                return 0;
             }
             //List<ushort> mapExclude = new List<ushort>() { 10965, 10966, 10987, 10995, 10996, 11552, 14552, 15025 };
             //if (mapExclude.FindIndex(item => item == mapid) >= 0)
@@ -393,397 +362,436 @@ namespace Ts.DataTools
             steps.Clear();
             for (int i = 0; i < nb_talk_quest; i++)
             {
-                #region
-                ushort idx = mapBuffer[pos];
-                pos += 15;
-                ushort totalTalk = mapBuffer[pos];
-                pos++;
-                ushort conditions = 0;
-                ushort condition = 0;
-                ushort idxStepAddCondition = 0;
-                for (int j = 0; j < totalTalk; j++)
+                LoadStep(tsBuffer, mapid, steps, i);
+            }
+
+            return tsBuffer.Pos;
+        }
+
+        private static void LoadStep(TsBuffer tsBuffer, ushort mapid, List<Step> steps, int i)
+        {
+            #region
+            ushort idx = tsBuffer.GetNumber<ushort>();
+            tsBuffer.IncreasePosition(15);
+            ushort totalTalk = tsBuffer.GetNumber<ushort>();
+            tsBuffer.IncreasePosition(1);
+            ushort conditions = 0;
+            ushort condition = 0;
+            ushort idxStepAddCondition = 0;
+            for (int j = 0; j < totalTalk; j++)
+            {
+                if (conditions > 1 & condition < conditions)
                 {
-                    if (conditions > 1 & condition < conditions)
+                    condition = LoadRefStep(tsBuffer, mapid, steps, i, condition, idxStepAddCondition);
+                    if (i == 0 && j == 0)
                     {
-                        //01 3C A8 01 02 00 00 00 00 00 00 00 00 00 00 00 00 02 00 00 00 00 
-                        //07 00 00 01 04 0F 00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
-                        //02 11 27 01 05 01 00 00 00 00 00 00 00 00 00 00 00 0C 01 00 00 01
-                        //07 05 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 0F 00 00 00 00
-                        //09 00 00 01 06 86 2F 00 00 00 00 00 00 00 00 00 00 09 00 00 00 00
-                        condition++;
-
-                        pos++;
-                        ushort typeCondition = mapBuffer[pos];
-                        pos++;
-
-                        ushort questRequired = read16(mapBuffer, pos); // quest Id or Item Id 
-                        ushort unknown_1 = mapBuffer[pos]; // 0 + 5 
-
-                        ushort unknown_2 = mapBuffer[pos + 1]; // 0
-                        pos += 2;
-
-
-                        ushort quantity = mapBuffer[pos]; // 1 - 2 or quantity
-                        ushort unknown_4 = mapBuffer[pos + 1]; // 0 - 4 - 5 
-                        pos += 2;
-                        ushort requiredLevel = read16(mapBuffer, pos); // Level required - NPC ID 
-                        ushort required = mapBuffer[pos]; // 0 1 2
-                        if (mapid == 12001 & i == 15)
-                        {
-                            Console.WriteLine(" unknown_1 >>> " + unknown_1);
-                            Console.WriteLine(" unknown_2 >>> " + quantity);
-                        }
-                        if (typeCondition == 7)
-                        {
-                            Step tempStep = steps.ElementAt(idxStepAddCondition - 1);
-                            steps[idxStepAddCondition - 1] = tempStep;
-                            if (unknown_1 == 0 & requiredLevel > 0)
-                            {
-                                tempStep.requiredLevel = requiredLevel;
-                            }
-                            if (unknown_1 == 5 & quantity == 1)
-                            {
-                                if (mapid == 12001 & i == 15)
-                                {
-                                    Console.WriteLine("  tempStep.stepId >>> " + tempStep.stepId);
-                                }
-                                // Full pet 
-                                tempStep.requiredSlotPet = true;
-                            }
-                            if (unknown_1 == 5 && quantity == 2)
-                            {
-                                // available slot pet 
-                                tempStep.requiredSlotPet = false;
-                            }
-                            steps[idxStepAddCondition - 1] = tempStep;
-                        }
-                        if (typeCondition == 2)
-                        {
-                            Step tempStep = steps.ElementAt(idxStepAddCondition - 1);
-
-                            if (required == 1 | required == 2)
-                            {
-                                if (!tempStep.requiredQuests.ContainsKey(questRequired))
-                                {
-                                    tempStep.requiredQuests.Add(questRequired, new List<ushort> { quantity, unknown_4, required });
-                                }
-                                //ushort temp = (ushort)(questRequired + quantity + unknown_4 + required);
-
-                            }
-                            if (required == 0 || unknown_1 == 2)
-                            {
-                                //ushort temp = (ushort)(questRequired + quantity + unknown_4 + required);
-                                if (!tempStep.receivedQuests.ContainsKey(questRequired))
-                                {
-                                    tempStep.receivedQuests.Add(questRequired, new List<ushort> { quantity, unknown_4, required });
-                                }
-
-                            }
-                            steps[idxStepAddCondition - 1] = tempStep;
-                        }
-                        if (typeCondition == 9)
-                        {
-                            Step tempStep = steps.ElementAt(idxStepAddCondition - 1);
-                            tempStep.requiredNpc.Add(requiredLevel);
-                            steps[idxStepAddCondition - 1] = tempStep;
-                        }
-                        if (typeCondition == 1)
-                        {
-                            Step tempStep = steps.ElementAt(idxStepAddCondition - 1);
-                            tempStep.requiredItems.Add(questRequired, quantity);
-                            steps[idxStepAddCondition - 1] = tempStep;
-                        }
-                        //if (typeCondition == 8)
-                        //{
-                        //    // Res Battle 1 ==> Win 
-                        //    // Res Battle 2 ==> Lose
-                        //    // Res battle 3 ==> Runout
-                        //    resBattle = read16(data, pos + 1);
-                        //    if (mapid == 12001)
-                        //    {
-                        //        Console.WriteLine("resBattle >>" + resBattle);
-                        //    }
-                        //    step.resBattle = resBattle;
-                        //}
-
-                        //if (type == 3)
-                        //{
-                        //    idBox = data[pos - 1];
-                        //}
-                        pos += 17;
-                        continue;
-                    }
-                    else
-                    {
-                        conditions = 0;
                         condition = 0;
                     }
-                    Step step = new()
-                    {
-                        requiredItems = new Dictionary<ushort, ushort>(),
-                        requiredNpc = new List<ushort>(),
-                        requiredQuests = new Dictionary<ushort, List<ushort>>(),
-                        receivedQuests = new Dictionary<ushort, List<ushort>>(),
-                        rootBit = new List<ushort>(),
-                        qIndex = idx,
-                        subStepIds = new List<ushort>()
-                    };
-                    ushort idxStep = mapBuffer[pos];
-                    step.stepId = idxStep;
-                    pos++;
-                    ushort type = mapBuffer[pos];
-                    step.type = type;
-                    pos += 2;
-                    ushort questId = read16(mapBuffer, pos - 1);
-                    //if (mapid == 12001 & i == 15) Console.WriteLine("questId >>" + questId);
-                    ushort optionId = 0;
-                    ushort resBattle = 0;
-                    ushort idBox = 0;
-                    // Select options
+                    continue;
+                }
+                else
+                {
+                    conditions = 0;
+                    condition = 0;
+                }
 
-                    if (type == 10)
-                    {
-                        ushort idDialog = mapBuffer[pos - 1];
+                ushort stepId = tsBuffer.GetNumber<ushort>();
+                tsBuffer.IncreasePosition(1);
+                ushort stepType = tsBuffer.GetNumber<ushort>();
+                tsBuffer.IncreasePosition(1);
+                Step step = new()
+                {
+                    stepId = stepId,
+                    requiredItems = new Dictionary<ushort, ushort>(),
+                    requiredNpc = new List<ushort>(),
+                    requiredQuests = new Dictionary<ushort, List<ushort>>(),
+                    receivedQuests = new Dictionary<ushort, List<ushort>>(),
+                    rootBit = new List<ushort>(),
+                    qIndex = idx,
+                    subStepIds = new List<ushort>(),
+                    normalTalk = false,
+                    type = stepType
+                };
+                tsBuffer.IncreasePosition(1);
+                ushort questId = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
+                //if (mapid == 12001 & i == 15) Console.WriteLine("questId >>" + questId);
+                ushort optionId = 0;
+                ushort resBattle = 0;
+                ushort idBox = 0;
+                // Select options
+
+                switch (stepType)
+                {
+                    case 10:
+                        ushort idDialog = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos - 1);
                         step.idDialog = idDialog;
-                        optionId = read16(mapBuffer, pos + 1);
+                        optionId = tsBuffer.Buffer.Read16(tsBuffer.Pos + 1);
                         step.optionId = optionId;
-                    }
-                    if (type == 2)
-                    {
+                        break;
+                    case 2:
                         step.questId = questId;
-                        ushort unknown_1 = mapBuffer[pos + 1]; // 1 + 2 + 3 
-                        ushort unknown_2 = mapBuffer[pos + 2]; // 0 + 5
-                        ushort required = mapBuffer[pos + 3]; // 0 + 1 + 2 
+                        ushort case_2_unknown_1 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 1); // 1 + 2 + 3 
+                        ushort case_2_unknown_2 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 2); // 0 + 5
+                        ushort required = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 3); // 0 + 1 + 2 
                         if (required == 1 | required == 2)
                         {
-                            step.requiredQuests.Add(questId, new List<ushort> { unknown_1, unknown_2, required });
+                            step.requiredQuests.Add(
+                                questId,
+                                new List<ushort> {
+                                    case_2_unknown_1,
+                                    case_2_unknown_2,
+                                    required
+                            });
                         }
-                        if (required == 0 || unknown_1 == 2)
+                        if (required == 0 || case_2_unknown_1 == 2)
                         {
-                            step.receivedQuests.Add(questId, new List<ushort> { unknown_1, unknown_2, required });
+                            step.receivedQuests.Add(
+                                questId,
+                                new List<ushort> {
+                                    case_2_unknown_1,
+                                    case_2_unknown_2,
+                                    required
+                            });
                         }
-                        step.rootBit.Add(unknown_1);
-                        step.rootBit.Add(unknown_2);
+                        step.rootBit.Add(case_2_unknown_1);
+                        step.rootBit.Add(case_2_unknown_2);
                         step.rootBit.Add(required);
-                    }
-                    // 02 07 00 00 01 04 0F 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00
-                    // 11 07 05 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 0F 00 00 00 00
-                    // 11 07 05 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 0F 00 00 00 00
-                    if (type == 7)
-                    {
-                        ushort type_required = mapBuffer[pos - 1];
-                        ushort unknown_1 = mapBuffer[pos];
-                        ushort unknown_2 = mapBuffer[pos + 1];
-                        ushort unknown_3 = mapBuffer[pos + 2];
-                        ushort requiredLevel = read16(mapBuffer, pos + 3);
+                        break;
+                    case 7:
+                        // 02 07 00 00 01 04 0F 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00
+                        // 11 07 05 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 0F 00 00 00 00
+                        // 11 07 05 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 0F 00 00 00 00
+                        ushort type_required = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos - 1);
+                        ushort case_7_unknown_1 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos);
+                        ushort case_7_unknown_2 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 1);
+                        ushort case_7_unknown_3 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 2);
+                        ushort requiredLevel = tsBuffer.Buffer.Read16(tsBuffer.Pos + 3);
                         if (type_required == 0 & requiredLevel > 0)
                         {
                             step.requiredLevel = requiredLevel;
                         }
-                        if (type_required == 5 & unknown_2 == 1)
+                        if (type_required == 5 & case_7_unknown_2 == 1)
                         {
                             // Full pet 
                             step.requiredSlotPet = true;
                         }
-                        if (type_required == 5 && unknown_2 == 2)
+                        if (type_required == 5 && case_7_unknown_2 == 2)
                         {
                             // available slot pet 
                             step.requiredSlotPet = false;
                         }
-
-                    }
-                    if (type == 9)
-                    {
+                        break;
+                    case 9:
                         //sample 09 00 00 01 05 86 2F
-                        ushort unknown_1 = read16(mapBuffer, pos - 1);
-                        ushort unknown_2 = mapBuffer[pos + 1];
-                        ushort unknown_3 = mapBuffer[pos + 2];
-                        ushort requiredNpc = read16(mapBuffer, pos + 3);
+                        ushort case_9_unknown_1 = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
+                        ushort case_9_unknown_2 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 1);
+                        ushort case_9_unknown_3 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 2);
+                        ushort requiredNpc = tsBuffer.Buffer.Read16(tsBuffer.Pos + 3);
                         step.requiredNpc.Add(requiredNpc);
-                    }
-                    if (type == 1)
-                    {
-                        ushort itemRequired = read16(mapBuffer, pos - 1);
-                        ushort quantity = mapBuffer[pos + 1];
-                        ushort unknown_1 = mapBuffer[pos + 2];
-                        ushort unknown_2 = read16(mapBuffer, pos + 3);
+                        break;
+                    case 1:
+                        ushort itemRequired = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
+                        ushort quantity = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 1);
+                        ushort case_1_unknown_1 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 2);
+                        ushort case_1_unknown_2 = tsBuffer.Buffer.Read16(tsBuffer.Pos + 3);
                         step.requiredItems.Add(itemRequired, quantity);
-                    }
-                    if (type == 8)
-                    {
+                        break;
+                    case 8:
                         // Res Battle 1 ==> Win 
                         // Res Battle 2 ==> Lose
                         // Res battle 3 ==> Runout
-                        resBattle = read16(mapBuffer, pos + 1);
+                        resBattle = tsBuffer.Buffer.Read16(tsBuffer.Pos + 1);
                         if (mapid == 12001)
                         {
                             Console.WriteLine("resBattle >>" + resBattle);
                         }
                         step.resBattle = resBattle;
-                    }
-
-                    if (type == 3)
-                    {
-                        idBox = mapBuffer[pos - 1];
-                    }
-                    if (type == 0)
-                    {
+                        break;
+                    case 3:
+                        idBox = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos - 1);
+                        break;
+                    case 0:
                         step.normalTalk = true;
-                    }
-                    else
-                    {
-                        step.normalTalk = false;
-                    }
-                    pos += 2;
-                    ushort unk2 = read16(mapBuffer, pos - 1);
-
-                    pos += 2;
-                    ushort unk3 = read16(mapBuffer, pos - 1);
-                    if (type == 2)
-                    {
-                        step.status = unk3;
-
-                    }
-                    pos += 2;
-
-                    ushort unk4 = read16(mapBuffer, pos);
-                    pos += 9;
-                    ushort prevStep = mapBuffer[pos];
-                    pos++;
-                    conditions = mapBuffer[pos];
-                    if (conditions > 1)
-                    {
-                        condition++;
-                        idxStepAddCondition = (ushort)(steps.Count + 1);
-                    }
-                    // Here pos is total sub step
-                    pos += 3;
-                    ushort totalPackages = mapBuffer[pos];
-                    int toPos = pos;
-                    pos++;
-                    List<PackageSend> listPackages = new();
-                    ushort npcId = 0;
-                    for (int k = 0; k < totalPackages; k++)
-                    {
-                        byte[] package = new byte[] {mapBuffer[pos], mapBuffer[pos+1], mapBuffer[pos+2], mapBuffer[pos+3], mapBuffer[pos+4],
-                            mapBuffer[pos+5], mapBuffer[pos+6], mapBuffer[pos+7], mapBuffer[pos+8], mapBuffer[pos+9], mapBuffer[pos+10],
-                            mapBuffer[pos+11], mapBuffer[pos+12], mapBuffer[pos+13]};
-                        PackageSend pg = new()
-                        {
-                            package = package
-                        };
-                        listPackages.Add(pg);
-                        if (idBox > 0)
-                        {
-                            step.npcIdInMap = idBox;
-                        }
-                        else if ((mapBuffer[pos + 3] == 1 | mapBuffer[pos + 3] == 6) & mapBuffer[pos + 4] == 3)
-                        {
-                            npcId = mapBuffer[pos + 5];
-                            if (step.npcIdInMap == 0)
-                                step.npcIdInMap = npcId;
-                        }
-                        if (mapBuffer[pos + 3] == 6 & mapBuffer[pos + 4] == 3)
-                        {
-                            ushort idDialogOption = (ushort)(PacketReader.read16(mapBuffer, pos + 12));
-                        }
-                        if (mapBuffer[pos + 3] == 3)
-                        {
-                            ushort idBattle = (ushort)(PacketReader.read16(mapBuffer, pos + 12));
-                        }
-                        if (mapBuffer[pos + 3] == 0 & mapBuffer[pos + 4] == 3)
-                        {
-                            ushort idNpcInMapJoin = mapBuffer[pos + 5];
-                        }
-                        if (mapBuffer[pos + 3] == 0 & mapBuffer[pos + 4] == 1)
-                        {
-                            ushort idItemReceived = (ushort)(PacketReader.read16(mapBuffer, pos + 5));
-                            ushort unknown = mapBuffer[pos + 7];
-                            ushort quantity = mapBuffer[pos + 8];
-                        }
-                        pos += 14;
-                    }
-                    //if (option > 1)
-                    //{
-                    //    step.options = new Dictionary<ushort, List<PackageSend>>();
-                    //    step.options.Add(option, listPackages);
-                    //}
-                    //if (mapid == 12002 & npcId <= nb_npc & npcId > 0) Console.WriteLine("NPC >>> "+ npcId);
-                    step.packageSend = listPackages.ToArray();
-                    steps.Add(step);
+                        break;
                 }
 
-                //quest.steps = steps;
 
-                //listQuests.Add(quest);
-                //TalkQuestItem talkQuestItem = new TalkQuestItem();
-                //ushort id_talk_quest = data[pos];
-                //talkQuestItem.idTalking = id_talk_quest;
-                //pos += 16;
-                //if (pos >= data.Length)
-                //{
-                //    return;
-                //}
-                //ushort total_talk_quest = data[pos];
-                //talkQuestItem.totalTalking = total_talk_quest;
-                ////pos += 1;
-                //for (int j = 0; j < total_talk_quest; j++)
-                //{
-                //    pos += 23;
-                //    ushort total_step = data[pos];
-                //    //pos += 1;
-                //    for (int k = 0; k < total_step; k++)
-                //    {
-                //        pos += 2;
-                //        byte[] dialog = new byte[12];
-                //        for (int l = 0; l < 12; l++)
-                //        {
-                //            dialog[l] = data[pos + l];
-                //        }
-                //        pos += 14;
-                //    }
+                tsBuffer.IncreasePosition(2);
+                ushort unk2 = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
+                tsBuffer.IncreasePosition(2);
 
+                ushort unk3 = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
+                tsBuffer.IncreasePosition(2);
+                if (stepType == 2)
+                {
+                    step.status = unk3;
+                }
+
+                ushort unk4 = tsBuffer.Read16();
+                tsBuffer.IncreasePosition(7);
+
+                ushort prevStep = tsBuffer.GetNumber<ushort>();
+                tsBuffer.IncreasePosition(1);
+
+                conditions = tsBuffer.GetNumber<ushort>();
+                tsBuffer.IncreasePosition(1);
+                if (conditions > 1)
+                {
+                    condition++;
+                    idxStepAddCondition = (ushort)(steps.Count + 1);
+                }
+                // Here pos is total sub step
+                tsBuffer.IncreasePosition(2);
+                uint toPos = tsBuffer.Pos;
+                ushort totalPackages = tsBuffer.GetNumber<ushort>();
+                tsBuffer.IncreasePosition(1);
+                List<PackageSend> listPackages = new();
+                ushort npcId = 0;
+
+                for (int k = 0; k < totalPackages; k++)
+                {
+                    byte[] package = new[] {
+                            tsBuffer[tsBuffer.Pos],
+                            tsBuffer[tsBuffer.Pos+1],
+                            tsBuffer[tsBuffer.Pos+2],
+                            tsBuffer[tsBuffer.Pos+3],
+                            tsBuffer[tsBuffer.Pos+4],
+                            tsBuffer[tsBuffer.Pos+5],
+                            tsBuffer[tsBuffer.Pos+6],
+                            tsBuffer[tsBuffer.Pos+7],
+                            tsBuffer[tsBuffer.Pos+8],
+                            tsBuffer[tsBuffer.Pos+9],
+                            tsBuffer[tsBuffer.Pos+10],
+                            tsBuffer[tsBuffer.Pos+11],
+                            tsBuffer[tsBuffer.Pos+12],
+                            tsBuffer[tsBuffer.Pos+13]
+                        };
+                    PackageSend pg = new()
+                    {
+                        package = package
+                    };
+                    listPackages.Add(pg);
+                    if (idBox > 0)
+                    {
+                        step.npcIdInMap = idBox;
+                    }
+                    else if ((tsBuffer[tsBuffer.Pos + 3] == 1 | tsBuffer[tsBuffer.Pos + 3] == 6) & tsBuffer[tsBuffer.Pos + 4] == 3)
+                    {
+                        npcId = tsBuffer[tsBuffer.Pos + 5];
+                        if (step.npcIdInMap == 0)
+                            step.npcIdInMap = npcId;
+                    }
+                    if (tsBuffer[tsBuffer.Pos + 3] == 6 & tsBuffer[tsBuffer.Pos + 4] == 3)
+                    {
+                        ushort idDialogOption = tsBuffer.Buffer.Read16(tsBuffer.Pos + 12);
+                    }
+                    if (tsBuffer[tsBuffer.Pos + 3] == 3)
+                    {
+                        ushort idBattle = tsBuffer.Buffer.Read16(tsBuffer.Pos + 12);
+                    }
+                    if (tsBuffer[tsBuffer.Pos + 3] == 0 & tsBuffer[tsBuffer.Pos + 4] == 3)
+                    {
+                        ushort idNpcInMapJoin = tsBuffer[tsBuffer.Pos + 5];
+                    }
+                    if (tsBuffer[tsBuffer.Pos + 3] == 0 & tsBuffer[tsBuffer.Pos + 4] == 1)
+                    {
+                        ushort idItemReceived = tsBuffer.Buffer.Read16(tsBuffer.Pos + 5);
+                        ushort unknown = tsBuffer[tsBuffer.Pos + 7];
+                        ushort quantity = tsBuffer[tsBuffer.Pos + 8];
+                    }
+                    tsBuffer.IncreasePosition(14);
+                }
+                //if (option > 1)
+                //{
+                //    step.options = new Dictionary<ushort, List<PackageSend>>();
+                //    step.options.Add(option, listPackages);
                 //}
-                #endregion
+                //if (mapid == 12002 & npcId <= nb_npc & npcId > 0) Console.WriteLine("NPC >>> "+ npcId);
+                step.packageSend = listPackages.ToArray();
+                steps.Add(step);
             }
 
-            return pos;
+            //quest.steps = steps;
+
+            //listQuests.Add(quest);
+            //TalkQuestItem talkQuestItem = new TalkQuestItem();
+            //ushort id_talk_quest = data[pos];
+            //talkQuestItem.idTalking = id_talk_quest;
+            //pos += 16;
+            //if (pos >= data.Length)
+            //{
+            //    return;
+            //}
+            //ushort total_talk_quest = data[pos];
+            //talkQuestItem.totalTalking = total_talk_quest;
+            ////pos += 1;
+            //for (int j = 0; j < total_talk_quest; j++)
+            //{
+            //    pos += 23;
+            //    ushort total_step = data[pos];
+            //    //pos += 1;
+            //    for (int k = 0; k < total_step; k++)
+            //    {
+            //        pos += 2;
+            //        byte[] dialog = new byte[12];
+            //        for (int l = 0; l < 12; l++)
+            //        {
+            //            dialog[l] = data[pos + l];
+            //        }
+            //        pos += 14;
+            //    }
+
+            //}
+            #endregion
         }
 
-        private static int loadUnknowData2(byte[] mapBuffer, int pos)
+        private static ushort LoadRefStep(TsBuffer tsBuffer, ushort mapid, List<Step> steps, int i, ushort condition, ushort idxStepAddCondition)
         {
-            ushort nb_random = read16(mapBuffer, pos);
+            //01 3C A8 01 02 00 00 00 00 00 00 00 00 00 00 00 00 02 00 00 00 00 
+            //07 00 00 01 04 0F 00 00 00 00 00 00 00 00 00 00 00 04 00 00 00 00
+            //02 11 27 01 05 01 00 00 00 00 00 00 00 00 00 00 00 0C 01 00 00 01
+            //07 05 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 0F 00 00 00 00
+            //09 00 00 01 06 86 2F 00 00 00 00 00 00 00 00 00 00 09 00 00 00 00
+            condition++;
 
-            pos += 2;
+            tsBuffer.IncreasePosition(1);
+            ushort typeCondition = tsBuffer.GetNumber<ushort>();
+            tsBuffer.IncreasePosition(1);
+
+            ushort unknown_1 = tsBuffer[tsBuffer.Pos]; // 0 + 5 
+            ushort unknown_2 = tsBuffer[tsBuffer.Pos + 1]; // 0
+            ushort questRequired = tsBuffer.Read16(); // quest Id or Item Id
+
+            ushort quantity = tsBuffer.GetNumber<ushort>(); ; // 1 - 2 or quantity
+            tsBuffer.IncreasePosition(1);
+            ushort unknown_4 = tsBuffer.GetNumber<ushort>(); ; // 0 - 4 - 5
+            tsBuffer.IncreasePosition(1);
+
+            ushort requiredLevel = tsBuffer.Buffer.Read16(tsBuffer.Pos); // Level required - NPC ID 
+            ushort required = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos); // 0 1 2
+            if (mapid == 12001 & i == 15)
+            {
+                Console.WriteLine(" unknown_1 >>> " + unknown_1);
+                Console.WriteLine(" unknown_2 >>> " + quantity);
+            }
+            switch (typeCondition)
+            {
+                case 7:
+                    {
+                        Step tempStep = steps.ElementAt(idxStepAddCondition - 1);
+                        steps[idxStepAddCondition - 1] = tempStep;
+                        if (unknown_1 == 0 & requiredLevel > 0)
+                        {
+                            tempStep.requiredLevel = requiredLevel;
+                        }
+                        if (unknown_1 == 5 & quantity == 1)
+                        {
+                            if (mapid == 12001 & i == 15)
+                            {
+                                Console.WriteLine("  tempStep.stepId >>> " + tempStep.stepId);
+                            }
+                            // Full pet 
+                            tempStep.requiredSlotPet = true;
+                        }
+                        if (unknown_1 == 5 && quantity == 2)
+                        {
+                            // available slot pet 
+                            tempStep.requiredSlotPet = false;
+                        }
+                        steps[idxStepAddCondition - 1] = tempStep;
+                        break;
+                    }
+                case 2:
+                    {
+                        Step tempStep = steps.ElementAt(idxStepAddCondition - 1);
+
+                        if (required == 1 | required == 2)
+                        {
+                            if (!tempStep.requiredQuests.ContainsKey(questRequired))
+                            {
+                                tempStep.requiredQuests.Add(questRequired, new List<ushort> { quantity, unknown_4, required });
+                            }
+                            //ushort temp = (ushort)(questRequired + quantity + unknown_4 + required);
+
+                        }
+                        if (required == 0 || unknown_1 == 2)
+                        {
+                            //ushort temp = (ushort)(questRequired + quantity + unknown_4 + required);
+                            if (!tempStep.receivedQuests.ContainsKey(questRequired))
+                            {
+                                tempStep.receivedQuests.Add(questRequired, new List<ushort> { quantity, unknown_4, required });
+                            }
+
+                        }
+                        steps[idxStepAddCondition - 1] = tempStep;
+                        break;
+                    }
+                case 9:
+                    {
+                        Step tempStep = steps.ElementAt(idxStepAddCondition - 1);
+                        tempStep.requiredNpc.Add(requiredLevel);
+                        steps[idxStepAddCondition - 1] = tempStep;
+                        break;
+                    }
+                case 1:
+                    {
+                        Step tempStep = steps.ElementAt(idxStepAddCondition - 1);
+                        if (!tempStep.requiredItems.ContainsKey(questRequired))
+                        {
+                            tempStep.requiredItems.Add(questRequired, quantity);
+                            steps[idxStepAddCondition - 1] = tempStep;
+                        }
+                        break;
+                    }
+                    //case 8:
+                    //    {
+                    //        // Res Battle 1 ==> Win 
+                    //        // Res Battle 2 ==> Lose
+                    //        // Res battle 3 ==> Runout
+                    //        resBattle = read16(data, pos + 1);
+                    //        if (mapid == 12001)
+                    //        {
+                    //            Console.WriteLine("resBattle >>" + resBattle);
+                    //        }
+                    //        step.resBattle = resBattle;
+                    //        break;
+                    //    }
+
+                    //case 3:
+                    //    {
+                    //        idBox = data[pos - 1];
+                    //        break;
+                    //    }
+            }
+
+            tsBuffer.IncreasePosition(17);
+            return condition;
+        }
+
+        private static uint LoadUnknowData2(TsBuffer tsBuffer)
+        {
+            ushort nb_random = tsBuffer.Read16();
+
             for (int i = 0; i < nb_random; i++)
             {
-                ushort idx = read16(mapBuffer, pos);
-                pos += 2;
-                ushort unk_1 = read16(mapBuffer, pos);
-                pos += 2;
-                ushort unk_2 = read16(mapBuffer, pos);
-                pos += 2;
-                ushort unk_3 = read16(mapBuffer, pos);
+                ushort idx = tsBuffer.Read16();
+                ushort unk_1 = tsBuffer.Read16();
+                ushort unk_2 = tsBuffer.Read16();
+                ushort unk_3 = tsBuffer.Read16();
 
-                ushort total = mapBuffer[pos];
-                pos++;
-
-                pos = pos + total * 2 + 1;
-
+                ushort total = tsBuffer.GetNumber<ushort>();
+                tsBuffer.IncreasePosition((uint)(total * 2 + 1));
             }
 
-            return pos;
+            return tsBuffer.Pos;
         }
 
-        private static int loadWarps(MapData mapData, byte[] mapBuffer, int pos)
+        private static uint LoadWarpPoints(MapData mapData, TsBuffer tsBuffer)
         {
-            ushort nb_warp = read16(mapBuffer, pos);
-            pos += 2;
-            uint X = 0, Y = 0;
+            ushort nb_warp = tsBuffer.Read16();
             for (int i = 0; i < nb_warp; i++)
             {
-
-                ushort warp_id = read16(mapBuffer, pos);
+                ushort warp_id = tsBuffer.Read16();
                 //if (mapid == 12000 & warp_id == 10)
                 //{
                 //    Console.WriteLine("Wrap 10 >> ");
@@ -793,18 +801,14 @@ namespace Ts.DataTools
                 //    }
                 //    Console.WriteLine();
                 //}
-                pos += 2;
-                ushort dest_map = read16(mapBuffer, pos);
-                pos += 4;
-                uint posX = read32(mapBuffer, pos) * 20 - 10;
-                pos += 4;
-                uint posY = read32(mapBuffer, pos) * 20 - 10;
-                pos += 4;
-                pos += 0x19;
+                ushort dest_map = tsBuffer.Read16();
+                tsBuffer.IncreasePosition(2);
+                uint posX = tsBuffer.ReadU32() * 20 - 10;
+                uint posY = tsBuffer.ReadU32() * 20 - 10;
+                tsBuffer.IncreasePosition(0x19);
 
                 try
                 {
-
                     ushort map1 = mapData.id;
                     ushort warpId = warp_id;
                     ushort map2 = dest_map;
@@ -818,7 +822,6 @@ namespace Ts.DataTools
                     //}
 
                     //WarpData.addGateway(map1, warpId, map2, (ushort)posX, (ushort)posY);
-
                 }
                 catch (Exception e)
                 {
@@ -826,114 +829,101 @@ namespace Ts.DataTools
                 }
             }
 
-            return pos;
+            return tsBuffer.Pos;
         }
 
-        private static int loadUnknowData1(byte[] mapBuffer, int pos)
+        private static uint LoadUnknowData1(TsBuffer tsBuffer)
         {
-            pos++;
-            ushort nb_unk1 = read16(mapBuffer, pos);
-            pos += 2;
+            tsBuffer.IncreasePosition(1);
+            ushort nb_unk1 = tsBuffer.Read16();
             for (int i = 0; i < nb_unk1; i++)
             {
-                pos += 2;
-                ushort nb = read16(mapBuffer, pos);
-                pos += 2;
-                pos += nb;
-                pos += 21;
+                tsBuffer.IncreasePosition(2);
+                ushort nb = tsBuffer.Read16();
+                tsBuffer.IncreasePosition(nb);
+                tsBuffer.IncreasePosition(21);
                 //Console.WriteLine(posX + " " + posY); 
             }
 
-            ushort nb_unk2 = read16(mapBuffer, pos);
-            pos += 2;
+            ushort nb_unk2 = tsBuffer.Read16();
             for (int i = 0; i < nb_unk2; i++)
             {
-                pos += 2;
-                ushort nb = read16(mapBuffer, pos);
-                pos += 2;
-                pos += nb;
-                pos += 17;
+                tsBuffer.IncreasePosition(2);
+                ushort nb = tsBuffer.Read16();
+                tsBuffer.IncreasePosition(nb);
+                tsBuffer.IncreasePosition(17);
                 //Console.WriteLine(posX + " " + posY); 
             }
 
-            ushort nb_dialog = read16(mapBuffer, pos);
-            pos += 2;
+            ushort nb_dialog = tsBuffer.Read16();
             for (int i = 0; i < nb_dialog; i++)
             {
-                byte first = mapBuffer[pos];
-                ushort first_ = mapBuffer[pos];
-                pos += 4;
-                byte nb_d = mapBuffer[pos];
-                ushort nb_dd = read16(mapBuffer, pos);
-                pos += 4;
-                byte nb_d_2 = mapBuffer[pos];
-                ushort nb_dd_2 = read16(mapBuffer, pos);
-                pos += 5 * nb_d;
-                byte nb_d_3 = mapBuffer[pos];
-                ushort nb_dd_3 = read16(mapBuffer, pos);
+                byte first = tsBuffer[tsBuffer.Pos];
+                tsBuffer.IncreasePosition(4);
+                byte nb_d = tsBuffer[tsBuffer.Pos];
+                tsBuffer.IncreasePosition(4);
+                byte nb_d_2 = tsBuffer[tsBuffer.Pos];
+                tsBuffer.IncreasePosition((uint)5 * nb_d);
+                byte nb_d_3 = tsBuffer[tsBuffer.Pos];
             }
 
-            return pos;
+            return tsBuffer.Pos;
         }
 
-        private static int loadItems(MapData mapData, byte[] mapBuffer, int pos)
+        private static uint LoadItems(MapData mapData, TsBuffer tsBuffer)
         {
-            ushort nb_entry_exit = read16(mapBuffer, pos);
-            pos++;
+            ushort nb_entry_exit = tsBuffer.Buffer.Read16(tsBuffer.Pos);
+            tsBuffer.IncreasePosition(1);
             mapData.items.Clear();
             for (int i = 0; i < nb_entry_exit; i++)
             {
-                ItemOnMap itemOnMap = new();
-                pos++;
+                tsBuffer.IncreasePosition(1);
+                ushort id = tsBuffer.GetNumber<ushort>();
+                tsBuffer.IncreasePosition(1);
+                ushort idItem = tsBuffer.Read16();
+                ushort posX = tsBuffer.Read16();
+                tsBuffer.IncreasePosition(2);
+                ushort posY = tsBuffer.Read16();
+                tsBuffer.IncreasePosition(2);
+                ushort timeDelay = tsBuffer.Buffer.Read16(tsBuffer.Pos);
+                tsBuffer.IncreasePosition(1);
 
-                ushort id = mapBuffer[pos];
-                itemOnMap.idItemOnMap = id;
-                pos++;
-                ushort idItem = read16(mapBuffer, pos);
-                itemOnMap.idItem = idItem;
-                pos += 2;
-                ushort posX = read16(mapBuffer, pos);
-                itemOnMap.posX = posX;
-                pos += 4;
-                ushort posY = read16(mapBuffer, pos);
-                itemOnMap.posY = posY;
-                pos += 4;
-                ushort timeDelay = read16(mapBuffer, pos);
-                itemOnMap.timeDelay = timeDelay;
-                pos++;
+                ItemOnMap itemOnMap = new()
+                {
+                    idItemOnMap = id,
+                    idItem = idItem,
+                    posX = posX,
+                    posY = posY,
+                    timeDelay = timeDelay
+                };
+
                 mapData.items.Add(itemOnMap);
             }
-
-            return pos;
+            return tsBuffer.Pos;
         }
 
-        private static int loadNpcs(MapData mapData, byte[] mapBuffer)
+        private static uint LoadNpcs(MapData mapData, TsBuffer tsBuffer)
         {
-            int pos = 0x67;
-            int nb_npc = mapBuffer[pos];
-            pos += 4;
+            int nb_npc = tsBuffer.GetNumberAt<int>(0x67);
+            tsBuffer.IncreasePosition(4);
             //NPC, later
             mapData.npcs.Clear();
             for (int i = 0; i < nb_npc; i++)
             {
-                ushort clickID = (ushort)(mapBuffer[pos] + (mapBuffer[pos + 1] << 8));
-                pos += 2;
-                ushort npcID = (ushort)(mapBuffer[pos] + (mapBuffer[pos + 1] << 8));
-                pos += 2;
-                ushort nb1 = (ushort)(mapBuffer[pos] + (mapBuffer[pos + 1] << 8));
-                pos += (nb1 + 2);
-                byte nb2 = mapBuffer[pos];
-
-                pos += (nb2 + 1);
-                byte nb_f = mapBuffer[pos];
-
-                pos += 9;
-                pos += (8 * nb_f);
-
-                pos += 31;
-                int posX = BitConverter.ToInt32(mapBuffer, pos);
-                pos += 4;
-                int posY = BitConverter.ToInt32(mapBuffer, pos);
+                ushort clickID = tsBuffer.Read16();
+                ushort npcID = tsBuffer.Read16();
+                ushort nb1 = tsBuffer.Read16();
+                tsBuffer.IncreasePosition(nb1);
+                byte nb2 = tsBuffer.ReadByte();
+                tsBuffer.IncreasePosition(nb2);
+                byte nb_f = tsBuffer.ReadByte();
+                tsBuffer.IncreasePosition(8);
+                tsBuffer.IncreasePosition((uint)8 * nb_f);
+                tsBuffer.IncreasePosition(31);
+                int posX = tsBuffer.Read32();
+                int posY = tsBuffer.Read32();
+                tsBuffer.IncreasePosition(4);
+                byte type = (byte)tsBuffer.Read16();
 
                 var npcOnMap = new NpcOnMap
                 {
@@ -941,27 +931,27 @@ namespace Ts.DataTools
                     idNpc = npcID,
                     unk_1 = nb1,
                     unk_2 = nb2,
-                    unk_3 = nb_f
+                    unk_3 = nb_f,
+                    type = type
                 };
-
-                pos += 4;
-                pos += 4;
-                byte type = (byte)(read16(mapBuffer, pos));
-                npcOnMap.type = type;
                 mapData.npcs.Add(npcOnMap);
-                pos += 37;
+                tsBuffer.IncreasePosition(35);
 
                 if (mapData.id == 12015 & clickID == 1) Console.WriteLine(" type " + type);
             }
 
-            return pos;
+            return tsBuffer.Pos;
         }
 
         private static void LoadAllWarp()
         {
             foreach (KeyValuePair<ushort, MapData> entry in listMapData)
             {
-                LoadWarp(entry.Value);
+                if (entry.Value.id == 12179)
+                {
+                    LoadWarp(entry.Value);
+                    break;
+                }
             }
         }
 

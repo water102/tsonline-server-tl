@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Ts.Server;
 using Ts.DataTools;
 using Ts.Client;
+using TsServer.DataTools2;
 
 namespace Ts
 {
@@ -36,6 +37,7 @@ namespace Ts
             NpcData.writeToFile("npc.txt");
 
             Console.WriteLine("Loading Eve data ...");
+            OldEveData.loadAllWarp();
             EveData.LoadData("data/eve.Emg");
 
             Console.WriteLine("Loading Warp data ...");
