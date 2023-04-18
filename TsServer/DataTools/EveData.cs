@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using TsServer.Buffer;
 using TsServer.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Ts.DataTools
 {
@@ -124,37 +125,70 @@ namespace Ts.DataTools
             mapData.npcs.Clear();
             for (int i = 0; i < nb_npc; i++)
             {
-                ushort clickID = tsBuffer.Read16();
-                ushort npcID = tsBuffer.Read16();
-                ushort nb1 = tsBuffer.Read16();
-                tsBuffer.IncreasePosition(nb1);
-                byte nb2 = tsBuffer.ReadByte();
-                tsBuffer.IncreasePosition(nb2);
-                byte nb_f = tsBuffer.ReadByte();
-                tsBuffer.IncreasePosition(8);
-                tsBuffer.IncreasePosition((uint)8 * nb_f);
-                tsBuffer.IncreasePosition(31);
-                int posX = tsBuffer.Read32();
-                int posY = tsBuffer.Read32();
-                tsBuffer.IncreasePosition(4);
-                byte type = (byte)tsBuffer.Read16();
-
-                var npcOnMap = new NpcOnMap
-                {
-                    idOnMap = clickID,
-                    idNpc = npcID,
-                    unk_1 = nb1,
-                    unk_2 = nb2,
-                    unk_3 = nb_f,
-                    type = type
-                };
-                mapData.npcs.Add(npcOnMap);
-                tsBuffer.IncreasePosition(35);
-
-                if (mapData.id == 12015 & clickID == 1) Console.WriteLine(" type " + type);
+                LoadNpc(mapData, tsBuffer);
             }
 
             return tsBuffer.Pos;
+        }
+
+        private static void LoadNpc(MapData mapData, TsBuffer tsBuffer)
+        {
+            ushort npcIndex = tsBuffer.Read16();
+            ushort npcID = tsBuffer.Read16();
+
+            //
+            ushort nb1 = tsBuffer.Read16();
+            var events = new byte[nb1];
+            for (int j = 0; j < nb1; j++)
+            {
+                events[j] = tsBuffer[tsBuffer.Pos + (uint)j];
+                tsBuffer.IncreasePosition(1);
+            }
+
+            //
+            byte nb2 = tsBuffer.ReadByte();
+            tsBuffer.IncreasePosition(nb2);
+
+            //
+            byte nb_f = tsBuffer.ReadByte();
+            tsBuffer.IncreasePosition(8);
+            List<Tuple<ushort, ushort>> patrol = new();
+            for (int j = 0; j < nb_f; j++)
+            {
+                int moveX = tsBuffer.Read32();
+                int moveY = tsBuffer.Read32();
+                patrol.Add(
+                    new Tuple<ushort, ushort>(
+                        (ushort)(moveX * 20 - 10), 
+                        (ushort)(moveY * 20 - 10)
+                    )
+                );
+            }
+
+            //
+            tsBuffer.IncreasePosition(31);
+            int posX = tsBuffer.Read32();
+            int posY = tsBuffer.Read32();
+            tsBuffer.IncreasePosition(4);
+            byte type = (byte)tsBuffer.Read16();
+            tsBuffer.IncreasePosition(35);
+
+            var npcOnMap = new NpcOnMap
+            {
+                NpcIndex = npcIndex,
+                NpcId = npcID,
+                Events = events.ToList(),
+                unk_1 = nb1,
+                unk_2 = nb2,
+                unk_3 = nb_f,
+                Patrol = patrol,
+                type = type,
+                posX = posX,
+                posY = posY,
+            };
+            mapData.npcs.Add(npcOnMap);
+
+            if (mapData.id == 12015 & npcIndex == 1) Console.WriteLine(" type " + type);
         }
 
         private static uint LoadItems(MapData mapData, TsBuffer tsBuffer)
@@ -164,29 +198,34 @@ namespace Ts.DataTools
             mapData.items.Clear();
             for (int i = 0; i < nb_entry_exit; i++)
             {
-                tsBuffer.IncreasePosition(1);
-                ushort id = tsBuffer.GetNumber<ushort>();
-                tsBuffer.IncreasePosition(1);
-                ushort idItem = tsBuffer.Read16();
-                ushort posX = tsBuffer.Read16();
-                tsBuffer.IncreasePosition(2);
-                ushort posY = tsBuffer.Read16();
-                tsBuffer.IncreasePosition(2);
-                ushort timeDelay = tsBuffer.Buffer.Read16(tsBuffer.Pos);
-                tsBuffer.IncreasePosition(1);
-
-                ItemOnMap itemOnMap = new()
-                {
-                    idItemOnMap = id,
-                    idItem = idItem,
-                    posX = posX,
-                    posY = posY,
-                    timeDelay = timeDelay
-                };
-
-                mapData.items.Add(itemOnMap);
+                LoadItem(mapData, tsBuffer);
             }
             return tsBuffer.Pos;
+        }
+
+        private static void LoadItem(MapData mapData, TsBuffer tsBuffer)
+        {
+            tsBuffer.IncreasePosition(1);
+            ushort id = tsBuffer.GetNumber<ushort>();
+            tsBuffer.IncreasePosition(1);
+            ushort idItem = tsBuffer.Read16();
+            ushort posX = tsBuffer.Read16();
+            tsBuffer.IncreasePosition(2);
+            ushort posY = tsBuffer.Read16();
+            tsBuffer.IncreasePosition(2);
+            ushort timeDelay = tsBuffer.Buffer.Read16(tsBuffer.Pos);
+            tsBuffer.IncreasePosition(1);
+
+            ItemOnMap itemOnMap = new()
+            {
+                idItemOnMap = id,
+                idItem = idItem,
+                posX = posX,
+                posY = posY,
+                timeDelay = timeDelay
+            };
+
+            mapData.items.Add(itemOnMap);
         }
 
         private static uint LoadGates(MapData mapData, TsBuffer tsBuffer)
@@ -196,20 +235,25 @@ namespace Ts.DataTools
             ushort totalGates = tsBuffer.Read16();
             for (int i = 0; i < totalGates; i++)
             {
-                var GateId = tsBuffer.Read16();
-                ushort nb = tsBuffer.Read16();
-                var eve = tsBuffer.Buffer.Read((int)tsBuffer.Pos, nb);
-                tsBuffer.IncreasePosition(nb);
-                tsBuffer.IncreasePosition(21);
-
-                mapData.gates.Add(new MapGate
-                {
-                    GateId = GateId,
-                    Eve = eve.ToList(),
-                });
+                LoadGate(mapData, tsBuffer);
             }
 
             return tsBuffer.Pos;
+        }
+
+        private static void LoadGate(MapData mapData, TsBuffer tsBuffer)
+        {
+            var GateId = tsBuffer.Read16();
+            ushort nb = tsBuffer.Read16();
+            var eve = tsBuffer.Buffer.Read((int)tsBuffer.Pos, nb);
+            tsBuffer.IncreasePosition(nb);
+            tsBuffer.IncreasePosition(21);
+
+            mapData.gates.Add(new MapGate
+            {
+                GateId = GateId,
+                Eve = eve.ToList(),
+            });
         }
 
         private static uint LoadUnknowData1(TsBuffer tsBuffer)
@@ -389,15 +433,19 @@ namespace Ts.DataTools
                     ushort idBox = 0;
                     // Select options
 
-                    switch (stepType)
+                    switch ((StepType)stepType)
                     {
-                        case 10:
-                            ushort idDialog = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos - 1);
-                            step.idDialog = idDialog;
-                            optionId = tsBuffer.Buffer.Read16(tsBuffer.Pos + 1);
-                            step.optionId = optionId;
+                        case StepType.Type0:
+                            step.normalTalk = true;
                             break;
-                        case 2:
+                        case StepType.Type1:
+                            ushort itemRequired = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
+                            ushort quantity = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 1);
+                            ushort case_1_unknown_1 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 2);
+                            ushort case_1_unknown_2 = tsBuffer.Buffer.Read16(tsBuffer.Pos + 3);
+                            step.requiredItems.Add(itemRequired, quantity);
+                            break;
+                        case StepType.Type2:
                             step.questId = questId;
                             ushort case_2_unknown_1 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 1); // 1 + 2 + 3 
                             ushort case_2_unknown_2 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 2); // 0 + 5
@@ -426,7 +474,10 @@ namespace Ts.DataTools
                             step.rootBit.Add(case_2_unknown_2);
                             step.rootBit.Add(required);
                             break;
-                        case 7:
+                        case StepType.Type3:
+                            idBox = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos - 1);
+                            break;
+                        case StepType.Type7:
                             // 02 07 00 00 01 04 0F 00 00 00 00 00 00 00 00 00 00 00 01 00 00 00 00
                             // 11 07 05 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00 0F 00 00 00 00
                             // 11 07 05 00 01 00 00 00 00 00 00 00 00 00 00 00 00 00 0F 00 00 00 00
@@ -450,22 +501,7 @@ namespace Ts.DataTools
                                 step.requiredSlotPet = false;
                             }
                             break;
-                        case 9:
-                            //sample 09 00 00 01 05 86 2F
-                            ushort case_9_unknown_1 = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
-                            ushort case_9_unknown_2 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 1);
-                            ushort case_9_unknown_3 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 2);
-                            ushort requiredNpc = tsBuffer.Buffer.Read16(tsBuffer.Pos + 3);
-                            step.requiredNpc.Add(requiredNpc);
-                            break;
-                        case 1:
-                            ushort itemRequired = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
-                            ushort quantity = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 1);
-                            ushort case_1_unknown_1 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 2);
-                            ushort case_1_unknown_2 = tsBuffer.Buffer.Read16(tsBuffer.Pos + 3);
-                            step.requiredItems.Add(itemRequired, quantity);
-                            break;
-                        case 8:
+                        case StepType.Type8:
                             // Res Battle 1 ==> Win 
                             // Res Battle 2 ==> Lose
                             // Res battle 3 ==> Runout
@@ -476,14 +512,21 @@ namespace Ts.DataTools
                             }
                             step.resBattle = resBattle;
                             break;
-                        case 3:
-                            idBox = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos - 1);
+                        case StepType.Type9:
+                            //sample 09 00 00 01 05 86 2F
+                            ushort case_9_unknown_1 = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
+                            ushort case_9_unknown_2 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 1);
+                            ushort case_9_unknown_3 = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos + 2);
+                            ushort requiredNpc = tsBuffer.Buffer.Read16(tsBuffer.Pos + 3);
+                            step.requiredNpc.Add(requiredNpc);
                             break;
-                        case 0:
-                            step.normalTalk = true;
+                        case StepType.Type10:
+                            ushort idDialog = tsBuffer.Buffer.GetNumberAt<ushort>(tsBuffer.Pos - 1);
+                            step.idDialog = idDialog;
+                            optionId = tsBuffer.Buffer.Read16(tsBuffer.Pos + 1);
+                            step.optionId = optionId;
                             break;
                     }
-
 
                     tsBuffer.IncreasePosition(2);
                     ushort unk2 = tsBuffer.Buffer.Read16(tsBuffer.Pos - 1);
@@ -523,22 +566,7 @@ namespace Ts.DataTools
 
                     for (int k = 0; k < totalPackages; k++)
                     {
-                        byte[] package = new[] {
-                            tsBuffer[tsBuffer.Pos],
-                            tsBuffer[tsBuffer.Pos+1],
-                            tsBuffer[tsBuffer.Pos+2],
-                            tsBuffer[tsBuffer.Pos+3],
-                            tsBuffer[tsBuffer.Pos+4],
-                            tsBuffer[tsBuffer.Pos+5],
-                            tsBuffer[tsBuffer.Pos+6],
-                            tsBuffer[tsBuffer.Pos+7],
-                            tsBuffer[tsBuffer.Pos+8],
-                            tsBuffer[tsBuffer.Pos+9],
-                            tsBuffer[tsBuffer.Pos+10],
-                            tsBuffer[tsBuffer.Pos+11],
-                            tsBuffer[tsBuffer.Pos+12],
-                            tsBuffer[tsBuffer.Pos+13]
-                        };
+                        byte[] package = tsBuffer.Buffer.Read((int)tsBuffer.Pos, 13);
                         PackageSend pg = new()
                         {
                             package = package

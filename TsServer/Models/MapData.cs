@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 using Ts.DataTools;
 using TsServer.Buffer;
 
@@ -15,7 +16,7 @@ namespace TsServer.Models
         public readonly List<EveInfo> eveList = new();
         public readonly List<Quest> quests = new();
         public readonly Dictionary<ushort, BattleInfo> battleListOnMap = new();
-        public readonly List<MapWarp> warps = new(); 
+        public readonly List<MapWarp> warps = new();
         public readonly List<MapGate> gates = new();
         public readonly List<Dialog> dialogs = new();
     }
@@ -28,16 +29,19 @@ namespace TsServer.Models
         public byte[] dialog;
     }
 
-    public struct NpcOnMap
+    public class NpcOnMap
     {
-        public ushort idOnMap;
-        public ushort idNpc;
-        public ushort idDialog;
+        public ushort NpcIndex;
+        public ushort NpcId;
         public ushort unk_1;
         public ushort unk_2;
         public ushort unk_3;
         public ushort totalTalking;
         public byte type;
+        public int posX;
+        public int posY;
+        public List<byte> Events = new();
+        public List<Tuple<ushort, ushort>> Patrol = new();
     }
 
     public struct PackageSend

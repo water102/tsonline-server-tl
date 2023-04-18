@@ -519,7 +519,7 @@ namespace Ts.Client
             p2.AddByte(packageToSend[7]);
             p2.AddByte(packageToSend[8]); p2.AddByte(packageToSend[9]); p2.AddByte(packageToSend[10]); p2.AddByte(packageToSend[11]);
             int idDialog = convertArrayByteToInt(new byte[] { packageToSend[12], packageToSend[13] });
-            ushort idDialog_2 = (ushort)(PacketReader.read16(packageToSend, 12));
+            ushort idDialog_2 = PacketReader.read16(packageToSend, 12);
             p2.Add16(idDialog_2);
             if (packageToSend[3] == 6 & packageToSend[4] == 3)
             {
@@ -534,8 +534,8 @@ namespace Ts.Client
             if (packageToSend[3] == 0 & packageToSend[4] == 3 & packageToSend[6] == 0 & packageToSend[7] == 1)
             {
                 ushort idNpcInMapJoin = packageToSend[5];
-                var index = Array.FindIndex(DataTools.EveData.listMapData[client.map.mapid].npcs.ToArray(), row => row.idOnMap == idNpcInMapJoin);
-                ushort idNpc = DataTools.EveData.listMapData[client.map.mapid].npcs[index].idNpc;
+                var index = DataTools.EveData.listMapData[client.map.mapid].npcs.FindIndex(row => row.NpcIndex == idNpcInMapJoin);
+                ushort idNpc = DataTools.EveData.listMapData[client.map.mapid].npcs[index].NpcId;
                 byte typePet = DataTools.EveData.listMapData[client.map.mapid].npcs[index].type;
                 client.getChar().addPet(idNpc, 0, typePet);
             }
@@ -588,10 +588,10 @@ namespace Ts.Client
                 client.idNpcTalking = (ushort)id_talking;
 
 
-                var index = Array.FindIndex(DataTools.EveData.listMapData[client.map.mapid].npcs.ToArray(), row => row.idOnMap == id_talking);
+                var index = DataTools.EveData.listMapData[client.map.mapid].npcs.FindIndex( row => row.NpcIndex == id_talking);
                 if (index > -1)
                 {
-                    ushort idNpc = DataTools.EveData.listMapData[client.map.mapid].npcs[index].idNpc;
+                    ushort idNpc = DataTools.EveData.listMapData[client.map.mapid].npcs[index].NpcId;
                     client.idNpc = idNpc;
 
                     TsServer.Models.Step[] steps = DataTools.EveData.listMapData[client.map.mapid].steps.FindAll(item => item.npcIdInMap == id_talking).ToArray();
@@ -664,7 +664,6 @@ namespace Ts.Client
                                 int idxCurrentQ = checkQuest(client, entry.Key);
                                 if (idxCurrentQ == -1 & ((bit_1 == 3 && bit_2 == 5 && bit_3 == 0) | (bit_1 == 2 & bit_2 == 0)))
                                 {
-
                                     insertOrUpdateQuest(client, entry.Key, entry.Value.ElementAt(0), entry.Value.ElementAt(1), entry.Value.ElementAt(2));
                                 }
                             }
@@ -684,8 +683,6 @@ namespace Ts.Client
                     }
                     if (stepValidate.Count > 0)
                     {
-
-
                         currentStep = stepValidate.FirstOrDefault();
                         stepValidate.ForEach(item =>
                         {
@@ -710,7 +707,6 @@ namespace Ts.Client
 
                         Console.WriteLine("Steppp validated >>>" + currentStep.stepId);
                         processStep(client);
-
                     }
                     else
                     {
